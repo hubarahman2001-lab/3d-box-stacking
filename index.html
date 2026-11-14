@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3D Box Stacking</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #141a26; color: #fff;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  #scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+  /* top bar: score, time, hint */
+  #hud { position: fixed; top: 12px; left: 12px; right: 12px; display: flex; gap: 8px; flex-wrap: wrap;
+    align-items: center; pointer-events: none; }
+  .pill { background: rgba(10, 14, 24, .72); border: 1px solid rgba(255,255,255,.14); border-radius: 999px;
+    padding: 8px 14px; font-size: 15px; font-weight: 600; }
+  #hint { font-weight: 500; opacity: .92; }
+  #restart, #recentre { pointer-events: auto; cursor: pointer; color: #fff; font: inherit; font-size: 15px; font-weight: 600; }
+  #recentre { margin-left: auto; display: none; }
+  body.mouse #restart { margin-left: auto; }
+
+  /* the ring that shows where your hand is pointing */
+  #ring { position: fixed; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%;
+    border: 3px solid #fff; box-shadow: 0 0 0 2px rgba(0,0,0,.35); pointer-events: none; display: none;
+    transition: width .1s, height .1s, margin .1s, background .1s; }
+  #ring.grab { width: 30px; height: 30px; margin: -15px 0 0 -15px; background: rgba(255,255,255,.45); }
+
+  /* small picture of your hand's outline (never your face) */
+  #handView { position: fixed; right: 12px; bottom: 12px; width: 180px; height: 135px; border-radius: 12px;
+    background: rgba(10, 14, 24, .72); border: 1px solid rgba(255,255,255,.14); display: none; }
+
+  /* start screen and win screen */
+  .overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(12, 16, 26, .86); padding: 16px; overflow: auto; }
+  .hidden { display: none !important; }
+  .card { width: min(480px, 100%); background: #1e2638; border: 1px solid rgba(255,255,255,.12);
+    border-radius: 18px; padding: 24px; text-align: center; }
+  h1 { margin: 0 0 6px; font-size: 28px; }
+  p { margin: 6px 0 14px; line-height: 1.45; color: #c9d2e6; }
+  .how { text-align: left; background: rgba(255,255,255,.05); border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; }
+  .how div { margin: 5px 0; font-size: 15px; color: #dfe6f5; }
+  .row { display: flex; gap: 8px; justify-content: center; margin-bottom: 14px; }
+  button { font: inherit; border: 0; border-radius: 12px; padding: 12px 16px; cursor: pointer; font-weight: 700; }
+  .level { background: #2c3650; color: #fff; flex: 1; }
+  .level.on { background: #fff; color: #1e2638; }
+  .main { background: #3d8bfd; color: #fff; width: 100%; font-size: 17px; margin-bottom: 8px; }
+  .alt { background: transparent; color: #c9d2e6; width: 100%; border: 1px solid rgba(255,255,255,.2); }
+  #msg { min-height: 20px; color: #ffd27a; font-size: 14px; margin: 10px 0 0; }
+  /* arrows at the screen edges: put your hand there to turn / walk */
+  .edge { position: fixed; display: none; align-items: center; justify-content: center; pointer-events: none;
+    color: #fff; font-size: 26px; font-weight: 800; opacity: .25; background: rgba(255,255,255,.10); }
+  .edge.l { left: 0; top: 18%; bottom: 18%; width: 9%; border-radius: 0 16px 16px 0; }
+  .edge.r { right: 0; top: 18%; bottom: 18%; width: 9%; border-radius: 16px 0 0 16px; }
+  .edge.t { top: 0; left: 18%; right: 18%; height: 11%; border-radius: 0 0 16px 16px; align-items: flex-end; padding-bottom: 4px; font-size: 18px; }
+  .edge.b { bottom: 0; left: 18%; right: 18%; height: 11%; border-radius: 16px 16px 0 0; font-size: 18px; }
+  /* walk buttons for mouse / touch */
+  #pad { position: fixed; left: 12px; bottom: 12px; display: none; grid-template-columns: repeat(3, 54px); grid-template-rows: repeat(2, 54px); gap: 6px; }
+  #pad button { background: rgba(10,14,24,.72); border: 1px solid rgba(255,255,255,.2); color: #fff; font-size: 20px; padding: 0; touch-action: none; user-select: none; -webkit-user-select: none; }
+  #pad button.on { background: #3d8bfd; }
+  #winTime { font-size: 44px; font-weight: 800; margin: 8px 0 16px; color: #fff; }
+</style>
+</head>
+<body>
+
+<canvas id="scene"></canvas>
+
+<div id="hud">
+  <div class="pill" id="score">Placed 0 / 6</div>
+  <div class="pill" id="time">0.0 s</div>
+  <div class="pill" id="hint">Hold a box with both hands</div>
+  <button class="pill" id="recentre">🧍 Re-centre</button>
+  <button class="pill" id="restart">↻ Restart</button>
+</div>
+
+<div class="edge l" id="eL">◀</div><div class="edge r" id="eR">▶</div>
+<div class="edge t" id="eT">▲ walk forward</div><div class="edge b" id="eB">▼ walk back</div>
+<div id="pad">
+  <span></span><button data-k="fwd">▲</button><span></span>
+  <button data-k="left">◀</button><button data-k="back">▼</button><button data-k="right">▶</button>
+</div>
+<div id="ring"></div>
+<canvas id="handView" width="240" height="180"></canvas>
+<video id="cam" playsinline muted style="display:none"></video>
+
+<div id="menu" class="overlay">
+  <div class="card">
+    <h1>📦 3D Box Stacking</h1>
+    <p>Walk around the room, pick up the boxes and stack them in the <b>build zone</b> exactly like the see-through plan shows. Sit or stand so the camera sees your face and both hands.</p>
+    <div class="how">
+      <div>🙌 <b>One hand each side of a box, bring them together</b> = lift it</div>
+      <div>📦 <b>Move both hands</b> = move the box · tilt them = tilt it</div>
+      <div>🫸 <b>Hands closer to / further from the camera</b> = box nearer / deeper</div>
+      <div>👐 <b>Move your hands apart</b> = put it down</div>
+      <div>🧍 <b>Lean left / right</b> = turn · <b>lean in</b> = walk forward · <b>lean back</b> = walk back</div>
+      <div style="opacity:.75">Mouse: hold to carry · W A S D or arrows = walk / turn · wheel or Q / E = depth</div>
+    </div>
+    <div class="row">
+      <button class="level" data-n="easy">Easy · Wall</button>
+      <button class="level on" data-n="normal">Normal · Pyramid</button>
+      <button class="level" data-n="hard">Hard · Big pyramid</button>
+    </div>
+    <button class="main" id="startCam">🎥 Start with camera</button>
+    <button class="alt" id="startMouse">Play with mouse / touch</button>
+    <p id="msg"></p>
+  </div>
+</div>
+
+<div id="win" class="overlay hidden">
+  <div class="card">
+    <h1>🎉 Built it!</h1>
+    <p>Your time</p>
+    <div id="winTime">0.0 s</div>
+    <button class="main" id="again">Play again</button>
+    <button class="alt" id="toMenu">Back to menu</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ================= SETTINGS (safe to change) =================
+const BOX = 0.8;                 // size of each box
+const HOLD_CLOSE = 3.4;          // hands closer together than this (measured in palm lengths) = you are holding the box
+const HOLD_OPEN = 4.8;           // hands further apart than this = you let go
+const ARM_REACH = 5;             // how near you must stand to a box to lift it
+const HAND_SIZE = 0.22;          // how big the 3D hands are drawn
+const FREE_DEPTH = 2.2;          // how far in front of you your empty hands float
+// walking with your body (the camera watches where your head is)
+const LEAN_DEAD = 0.05;          // how far your head must move sideways before you start to turn
+const LEAN_FULL = 0.16;          // head this far sideways = turning at full speed
+const LEAN_IN = 1.10;            // face this much bigger than normal (you leaned in) = start walking forward
+const LEAN_IN_FULL = 1.30;       // = walking forward at full speed
+const LEAN_BACK = 0.93;          // face this much smaller than normal (you leaned back) = start walking backwards
+const LEAN_BACK_FULL = 0.82;     // = walking backwards at full speed
+const DEPTH_GAIN = 1.8;          // how strongly moving your hand closer / further moves the box in depth
+const REACH = 0.6;               // how much of the camera picture covers the whole screen (smaller = less arm movement)
+const SMOOTH = 0.35;             // 0..1, higher = pointer follows faster but shakes more
+const GRACE = 0.6;               // seconds a lost hand is kept before the box is dropped
+const GRAVITY = 18;              // how fast a dropped box falls
+const EDGE = 0.13;               // backup only (if the head finder can't load): hands this close to a screen edge turn / walk
+const WALK_SPEED = 3.6;          // how fast you walk
+const TURN_SPEED = 1.5;          // how fast you turn
+const SNAP = 0.7;                // how close a dropped box must be to a spot in the plan to click into it
+const KINDS = [                  // the three kinds of box
+  { letter: 'A', color: '#e85d4a' },
+  { letter: 'B', color: '#f2b632' },
+  { letter: 'C', color: '#3d8bfd' }
+];
+// THE PLANS: each line is one layer, bottom layer first. Change the letters to change what must be built.
+const LEVELS = {
+  easy:   [ ['A', 'B', 'C'], ['A', 'B', 'C'] ],
+  normal: [ ['A', 'B', 'C'], ['C', 'A'], ['B'] ],
+  hard:   [ ['A', 'B', 'C', 'A'], ['B', 'C', 'B'], ['C', 'A'], ['B'] ]
+};
+const GAP = 0.9;                 // distance between boxes that sit side by side in the plan
+const BUILD = { x: 0, z: -5.6, w: 6, d: 3 };                           // where the build zone is, and its size
+const ROOM = { minX: -7.4, maxX: 7.4, minZ: -7.4, maxZ: 8.4, maxY: 4.5 };   // boxes can't leave this space
+const WALK = { minX: -7, maxX: 7, minZ: -4.0, maxZ: 8 };               // where you can walk (not into the build zone)
+
+const THREE_URLS = [
+  'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
+  'https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js'      // backup
+];
+const MP_VER = '0.4.1675469240';   // same pinned MediaPipe Hands version as the Hand Games project
+const MP_URLS = [
+  'https://cdn.jsdelivr.net/npm/@mediapipe/hands@' + MP_VER + '/',
+  'https://unpkg.com/@mediapipe/hands@' + MP_VER + '/'                 // backup
+];
+
+const FD_VER = '0.4.1646425229';   // same pinned MediaPipe Face Detection version as the Hand Games project
+const FACE_URLS = [
+  'https://cdn.jsdelivr.net/npm/@mediapipe/face_detection@' + FD_VER + '/',
+  'https://unpkg.com/@mediapipe/face_detection@' + FD_VER + '/'        // backup
+];
+
+// ================= SMALL HELPERS =================
+const $ = id => document.getElementById(id);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+// loads a script file; tries each address in the list until one works
+function loadScript(urls) {
+  return new Promise((resolve, reject) => {
+    let i = 0;
+    const next = () => {
+      if (i >= urls.length) return reject(new Error('Could not download ' + urls[0]));
+      const s = document.createElement('script');
+      s.src = urls[i]; s.crossOrigin = 'anonymous';
+      s.onload = () => resolve(urls[i]);
+      s.onerror = () => { s.remove(); i++; next(); };
+      document.head.appendChild(s);
+    };
+    next();
+  });
+}
+
+// ================= SOUND =================
+let audio = null;
+function beep(freq, len, type, vol) {
+  if (!audio) return;
+  try {
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.type = type || 'sine'; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol || 0.12, audio.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + len);
+    o.connect(g); g.connect(audio.destination); o.start(); o.stop(audio.currentTime + len);
+  } catch (e) {}
+}
+
+// ================= GAME STATE =================
+let renderer, scene, camera, raycaster, landRing;
+let boxes = [];                  // every box: { mesh, kind, vy, resting, held, wasRight }
+let slots = [];                  // every spot in the plan: { x, y, z, level, kind, ghost, edges, filled, open }
+let level = 'normal';
+const player = { x: 0, z: 4.5, yaw: 0 };   // where you stand and which way you face
+const keys = { left: false, right: false, fwd: false, back: false };
+let magnet = null;               // the plan spot the carried box is being pulled to
+let note = '', noteUntil = 0;    // a short message shown in the hint pill
+let mode = null;                 // 'cam' or 'mouse'
+let playing = false;
+let startTime = 0, timing = false;
+let held = null;                 // the box being carried
+let hover = null;                // the box under the pointer
+let holdDist = 0;                // how far from the camera the carried box started
+
+// what the hand (or mouse) is doing right now
+// in camera mode: u, v = the point halfway between your two hands, grab = hands are close together
+const input = { active: false, u: 0.5, v: 0.5, grab: false, size: 1, lastSeen: 0, roll: 0 };
+let tracked = [], trackedAt = 0; // the hands the camera sees right now (left one on screen first)
+let handModels = [];             // the two 3D hands
+const head = { x: 0.5, w: 0.2, x0: null, w0: null, samples: [], lastSeen: 0, turn: 0, go: 0 };   // where your head is, and where it normally is (x0, w0)
+let grabSize = 1;                // hand size at the moment the box was picked up
+let mouseDepth = 1;              // depth control for mouse wheel / keys
+
+// ================= BUILD THE 3D ROOM =================
+function labelTexture(color, letter, faded) {
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d');
+  g.fillStyle = color; g.fillRect(0, 0, 256, 256);
+  if (faded) { g.fillStyle = 'rgba(20,26,38,.45)'; g.fillRect(0, 0, 256, 256); }
+  g.strokeStyle = 'rgba(0,0,0,.28)'; g.lineWidth = 18; g.strokeRect(9, 9, 238, 238);
+  g.fillStyle = '#fff'; g.font = 'bold 150px system-ui, sans-serif';
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(letter, 128, 138);
+  return new THREE.CanvasTexture(c);
+}
+
+function buildScene() {
+  renderer = new THREE.WebGLRenderer({ canvas: $('scene'), antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x141a26);
+  scene.fog = new THREE.Fog(0x141a26, 14, 30);
+
+  camera = new THREE.PerspectiveCamera(62, 1, 0.1, 100);
+  camera.rotation.order = 'YXZ';
+  raycaster = new THREE.Raycaster();
+
+  // lights
+  scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x2a3040, 0.8));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.8);
+  sun.position.set(5, 12, 6); sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.camera.left = -12; sun.shadow.camera.right = 12;
+  sun.shadow.camera.top = 12; sun.shadow.camera.bottom = -12;
+  scene.add(sun);
+
+  // floor, with grid lines so depth is easy to judge
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshStandardMaterial({ color: 0x36405a, roughness: 0.95 }));
+  floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+  const grid = new THREE.GridHelper(40, 40, 0x55617f, 0x465170);
+  grid.position.y = 0.002; scene.add(grid);
+
+  // the room's four walls (a big box seen from the inside)
+  const walls = new THREE.Mesh(new THREE.BoxGeometry(16, 7, 17.4),
+    new THREE.MeshStandardMaterial({ color: 0x2c3650, roughness: 1, side: THREE.BackSide }));
+  walls.position.set(0, 3.5, 0.5); scene.add(walls);
+
+  // the build zone painted on the floor
+  const c = document.createElement('canvas'); c.width = 1024; c.height = 512;
+  const g = c.getContext('2d');
+  g.fillStyle = 'rgba(255, 210, 60, .10)'; g.fillRect(0, 0, 1024, 512);
+  g.lineWidth = 36;
+  for (let i = -512; i < 1024 + 512; i += 72) {          // yellow / black warning stripes round the edge
+    g.strokeStyle = (i / 72) % 2 ? '#1a1f2c' : '#ffd23c';
+    g.beginPath(); g.moveTo(i, 0); g.lineTo(i + 512, 512); g.stroke();
+  }
+  g.clearRect(34, 34, 956, 444);
+  g.fillStyle = 'rgba(255, 210, 60, .12)'; g.fillRect(34, 34, 956, 444);
+  g.fillStyle = '#ffd23c'; g.font = 'bold 72px system-ui, sans-serif'; g.textAlign = 'center';
+  g.fillText('BUILD ZONE', 512, 440);
+  const zone = new THREE.Mesh(new THREE.PlaneGeometry(BUILD.w, BUILD.d),
+    new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true }));
+  zone.rotation.x = -Math.PI / 2; zone.position.set(BUILD.x, 0.006, BUILD.z + 0.5); scene.add(zone);
+
+  // ring on the floor that shows where the carried box will land
+  landRing = new THREE.Mesh(new THREE.RingGeometry(BOX * 0.5, BOX * 0.62, 40),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, side: THREE.DoubleSide }));
+  landRing.rotation.x = -Math.PI / 2; landRing.visible = false; scene.add(landRing);
+
+  onResize();
+  window.addEventListener('resize', onResize);
+}
+
+function onResize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+
+// put the camera where the player stands
+function placeCamera() {
+  camera.position.set(player.x, 2.5, player.z);
+  camera.rotation.set(-0.34, player.yaw, 0);
+  camera.updateMatrixWorld();
+}
+
+// ================= THE PLAN (see-through boxes showing what to build) =================
+function buildPlan() {
+  slots.forEach(s => { scene.remove(s.ghost); scene.remove(s.edges); });
+  slots = [];
+  const geo = new THREE.BoxGeometry(BOX * 0.98, BOX * 0.98, BOX * 0.98);
+  const edgeGeo = new THREE.EdgesGeometry(geo);
+  LEVELS[level].forEach((row, lv) => row.forEach((letter, i) => {
+    const kind = KINDS.findIndex(k => k.letter === letter);
+    const s = { x: BUILD.x + (i - (row.length - 1) / 2) * GAP, y: BOX / 2 + lv * BOX, z: BUILD.z, level: lv, kind, filled: false, open: false };
+    s.ghost = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: labelTexture(KINDS[kind].color, letter), transparent: true, opacity: 0.2, depthWrite: false }));
+    s.edges = new THREE.LineSegments(edgeGeo, new THREE.LineBasicMaterial({ color: KINDS[kind].color, transparent: true }));
+    s.ghost.position.set(s.x, s.y, s.z); s.edges.position.copy(s.ghost.position);
+    scene.add(s.ghost); scene.add(s.edges);
+    slots.push(s);
+  }));
+}
+
+// works out which plan spots are done, and which can be filled next (the ones with boxes underneath)
+function updateSlots(t) {
+  for (const s of slots) {
+    s.filled = boxes.some(b => !b.held && b.resting && b.kind === s.kind &&
+      Math.abs(b.mesh.position.x - s.x) < 0.12 && Math.abs(b.mesh.position.z - s.z) < 0.12 && Math.abs(b.mesh.position.y - s.y) < 0.12);
+  }
+  for (const s of slots) {
+    s.open = !s.filled && slots.every(o => o.level !== s.level - 1 || Math.abs(o.x - s.x) > BOX * 0.95 || o.filled);
+    const wanted = held && s.open && held.kind === s.kind;          // the carried box belongs here
+    s.ghost.visible = s.edges.visible = !s.filled;
+    s.ghost.material.opacity = wanted ? 0.4 + 0.2 * Math.sin(t / 130) : s.open ? 0.24 : 0.07;
+    s.edges.material.opacity = s.open ? 1 : 0.25;
+  }
+}
+
+// ================= BOXES =================
+function newGame() {
+  boxes.forEach(b => scene.remove(b.mesh));
+  boxes = []; held = null; hover = null; magnet = null; landRing.visible = false;
+  head.x0 = null; head.samples = [];       // measure again where your head normally is
+  buildPlan();
+  player.x = 0; player.z = 4.5; player.yaw = 0;
+  const geo = new THREE.BoxGeometry(BOX, BOX, BOX);
+  for (const s of slots) {                 // one box for every spot in the plan
+    const kind = s.kind;
+    const mat = new THREE.MeshStandardMaterial({ map: labelTexture(KINDS[kind].color, KINDS[kind].letter), roughness: 0.7 });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.castShadow = true; mesh.receiveShadow = true; mesh.rotation.order = 'YXZ';
+    // find a free spot somewhere in the room (not in the build zone, not where you start)
+    for (let tries = 0; tries < 300; tries++) {
+      mesh.position.set(-6.5 + Math.random() * 13, BOX / 2, -1.5 + Math.random() * 9);
+      const farFromMe = Math.hypot(mesh.position.x - player.x, mesh.position.z - player.z) > 1.6;
+      if (farFromMe && boxes.every(o => Math.abs(o.mesh.position.x - mesh.position.x) > BOX * 1.4 || Math.abs(o.mesh.position.z - mesh.position.z) > BOX * 1.4)) break;
+    }
+    scene.add(mesh);
+    boxes.push({ mesh, kind, vy: 0, resting: true, held: false, wasRight: false });
+  }
+  timing = false; startTime = 0; playing = true;
+  $('time').textContent = '0.0 s';
+  $('win').classList.add('hidden');
+  placeCamera(); updateSlots(0); updateScore();
+}
+
+// is this box sitting in a spot of the plan that wants its letter?
+function isRight(b) {
+  const p = b.mesh.position;
+  return !b.held && b.resting && slots.some(s => s.kind === b.kind && Math.abs(p.x - s.x) < 0.12 && Math.abs(p.z - s.z) < 0.12 && Math.abs(p.y - s.y) < 0.12);
+}
+
+function updateScore() {
+  const n = slots.filter(s => s.filled).length;
+  $('score').textContent = 'Placed ' + n + ' / ' + slots.length;
+  return n;
+}
+
+// the nearest plan spot that this box could go into right now
+function slotNear(b, reach) {
+  const p = b.mesh.position; let best = null, bestD = reach;
+  for (const s of slots) {
+    if (!s.open || s.kind !== b.kind) continue;
+    const d = Math.hypot(p.x - s.x, p.z - s.z);
+    if (d < bestD) { bestD = d; best = s; }
+  }
+  return best;
+}
+
+// height of whatever is underneath a box (floor, a pad, or another box)
+function supportUnder(b) {
+  const p = b.mesh.position;
+  let h = 0;
+  for (const o of boxes) {
+    if (o === b || o.held) continue;
+    const q = o.mesh.position;
+    if (Math.abs(p.x - q.x) < BOX * 0.95 && Math.abs(p.z - q.z) < BOX * 0.95) {
+      const top = q.y + BOX / 2;
+      if (top <= p.y - BOX / 2 + 0.3) h = Math.max(h, top);
+    }
+  }
+  return h;
+}
+
+// if a dropped box is stuck inside another box, lift it on top
+function liftOutOfBoxes(b) {
+  const p = b.mesh.position;
+  for (let pass = 0; pass < 6; pass++) {
+    let moved = false;
+    for (const o of boxes) {
+      if (o === b) continue;
+      const q = o.mesh.position;
+      if (Math.abs(p.x - q.x) < BOX * 0.95 && Math.abs(p.z - q.z) < BOX * 0.95 && Math.abs(p.y - q.y) < BOX * 0.98) {
+        p.y = q.y + BOX + 0.01; moved = true;
+      }
+    }
+    if (!moved) break;
+  }
+}
+
+function physics(dt) {
+  for (const b of boxes) {
+    if (b.held) continue;
+    const p = b.mesh.position, ground = supportUnder(b) + BOX / 2;
+    if (p.y > ground + 0.001) {            // nothing underneath: fall
+      b.resting = false;
+      b.vy -= GRAVITY * dt;
+      p.y += b.vy * dt;
+    }
+    if (p.y <= ground + 0.001) {
+      p.y = ground;
+      if (!b.resting) {                    // just landed
+        b.resting = true; b.vy = 0;
+        updateSlots(performance.now());
+        const right = isRight(b);
+        if (right && !b.wasRight) { beep(660, 0.12); setTimeout(() => beep(880, 0.18), 90); }
+        else beep(120, 0.1, 'triangle', 0.18);
+        b.wasRight = right;
+        updateScore();
+      }
+    }
+  }
+}
+
+// ================= PICKING UP AND CARRYING =================
+function pointerRay() {
+  raycaster.setFromCamera({ x: input.u * 2 - 1, y: -(input.v * 2 - 1) }, camera);
+  return raycaster.ray;
+}
+
+// which box is the pointer on? (forgiving: the nearest box close to the pointer also counts)
+function findHover() {
+  const ray = pointerRay();
+  const hits = raycaster.intersectObjects(boxes.map(b => b.mesh));
+  if (hits.length) return boxes.find(b => b.mesh === hits[0].object);
+  let best = null, bestD = 0.09;
+  const v = new THREE.Vector3();
+  for (const b of boxes) {
+    v.copy(b.mesh.position).project(camera);
+    const d = Math.hypot((v.x - (input.u * 2 - 1)) * camera.aspect, v.y + (input.v * 2 - 1));
+    if (d < bestD) { bestD = d; best = b; }
+  }
+  return best;
+}
+
+function setGlow(b, on) { b.mesh.material.emissive.setHex(on ? 0x444444 : 0x000000); }
+
+function pickUp(b) {
+  held = b; b.held = true; b.resting = false; b.vy = 0; b.wasRight = false;
+  holdDist = clamp(camera.position.distanceTo(b.mesh.position), 1.9, 3.0);   // a carried box is held close, at arm's length
+  grabSize = input.size; mouseDepth = 1;
+  if (!timing) { timing = true; startTime = performance.now(); }
+  beep(520, 0.08);
+  updateScore();
+}
+
+function drop() {
+  if (!held) return;
+  const b = held; held = null; b.held = false; b.vy = 0;
+  const p = b.mesh.position;
+  b.mesh.rotation.set(0, 0, 0);
+  const s = magnet || slotNear(b, SNAP);
+  if (s) { p.x = s.x; p.z = s.z; p.y = Math.max(p.y, s.y); }      // click into the plan
+  else {
+    // dropped on a plan spot that wants a different letter, or one that isn't ready yet?
+    const wrong = slots.find(o => !o.filled && Math.hypot(p.x - o.x, p.z - o.z) < SNAP);
+    if (wrong) {
+      note = wrong.kind !== b.kind ? 'That spot is for ' + KINDS[wrong.kind].letter + ' boxes' : 'Fill the layer underneath first';
+      noteUntil = performance.now() + 2500;
+    }
+  }
+  magnet = null;
+  liftOutOfBoxes(b);
+  landRing.visible = false;
+  setGlow(b, false);
+}
+
+function carry() {
+  const ray = pointerRay();
+  // hand closer to the camera = bigger hand = box comes nearer
+  const ratio = mode === 'cam' ? grabSize / Math.max(0.0001, input.size) : mouseDepth;
+  let d = clamp(holdDist * Math.pow(ratio, DEPTH_GAIN), 1.5, 5.5);
+  const minY = BOX / 2 + 0.02;
+  if (ray.direction.y < 0) d = Math.min(d, (minY - ray.origin.y) / ray.direction.y);   // don't go through the floor
+  const p = held.mesh.position;
+  const target = ray.origin.clone().addScaledVector(ray.direction, d);
+
+  // magnet: when you point at a spot in the plan that wants this box, it is pulled there
+  magnet = null;
+  let bestOff = 0.6;
+  const v = new THREE.Vector3();
+  for (const s of slots) {
+    if (!s.open || s.kind !== held.kind) continue;
+    v.set(s.x, s.y, s.z).sub(ray.origin);
+    const along = v.dot(ray.direction);                               // how far along the pointing line the spot is
+    const off = v.addScaledVector(ray.direction, -along).length();    // how far the line misses it by
+    if (off < bestOff && Math.abs(along - d) < 2.2) { bestOff = off; magnet = s; }
+  }
+  if (magnet) target.set(magnet.x, magnet.y + 0.3, magnet.z);
+
+  target.x = clamp(target.x, ROOM.minX, ROOM.maxX);
+  target.z = clamp(target.z, ROOM.minZ, ROOM.maxZ);
+  target.y = clamp(target.y, minY, ROOM.maxY);
+  p.lerp(target, 0.45);
+  // the box faces the way you face and tilts with your hands (it straightens up over a plan spot)
+  if (magnet) held.mesh.rotation.set(0, 0, 0);
+  else held.mesh.rotation.set(0, player.yaw, mode === 'cam' ? clamp(input.roll, -0.6, 0.6) : 0);
+
+  // ring underneath: where it will land (green when it will click into the plan)
+  landRing.visible = true;
+  landRing.position.set(p.x, supportUnder(held) + 0.02, p.z);
+  landRing.material.color.setHex(magnet || slotNear(held, SNAP) ? 0x5dff8f : 0xffffff);
+}
+
+function tooFar(b) { return Math.hypot(b.mesh.position.x - player.x, b.mesh.position.z - player.z) > ARM_REACH; }
+
+function updateHint() {
+  const cam = mode === 'cam';
+  const twoHands = performance.now() - trackedAt < 400 && tracked.length === 2;
+  let t;
+  if (performance.now() < noteUntil) t = note;
+  else if (held) {
+    const letter = KINDS[held.kind].letter;
+    if (magnet || slotNear(held, SNAP)) t = cam ? 'Move your hands apart to place it ✔' : 'Let go to place it ✔';
+    else if (!slots.some(s => s.open && s.kind === held.kind)) t = 'No free spot for ' + letter + ' yet — build the layer underneath first';
+    else t = 'Carry it to a glowing ' + letter + ' spot in the build zone';
+  }
+  else if (cam && faceModel && head.x0 === null) t = 'Sit or stand normally and look at the screen…';
+  else if (cam && !twoHands) t = 'Show both hands to the camera';
+  else if (hover && tooFar(hover)) t = cam ? 'Too far — lean in to walk closer' : 'Too far — walk closer (W)';
+  else if (hover) t = cam ? 'Bring your hands together on its sides to lift it 🙌' : 'Hold the button down to pick it up';
+  else t = cam ? (faceModel ? 'Lean left / right to turn · lean in to walk · hold a box with both hands' : 'Hands at the screen edges = turn / walk · hold a box with both hands')
+               : 'W A S D = walk / turn · hold on a box to carry it';
+  if ($('hint').textContent !== t) $('hint').textContent = t;
+}
+
+// ================= WALKING =================
+function walk(dt) {
+  let turn = 0, go = 0;
+  if (mode === 'cam' && faceModel) {
+    // walking with your body: compare where your head is now with where it normally is
+    if (head.x0 !== null && performance.now() - head.lastSeen < 700) {
+      const side = head.x - head.x0;                       // head moved left / right
+      turn = Math.sign(side) * clamp((Math.abs(side) - LEAN_DEAD) / (LEAN_FULL - LEAN_DEAD), 0, 1);
+      const big = head.w / head.w0;                        // face got bigger (leaned in) or smaller (leaned back)
+      if (big > LEAN_IN) go = clamp((big - LEAN_IN) / (LEAN_IN_FULL - LEAN_IN), 0, 1);
+      else if (big < LEAN_BACK) go = -clamp((LEAN_BACK - big) / (LEAN_BACK - LEAN_BACK_FULL), 0, 1);
+    }
+  } else if (mode === 'cam') {
+    if (input.active) {                      // backup: hands near a screen edge
+      if (input.u < EDGE) turn = -(EDGE - input.u) / EDGE; else if (input.u > 1 - EDGE) turn = (input.u - (1 - EDGE)) / EDGE;
+      if (input.v < EDGE) go = (EDGE - input.v) / EDGE; else if (input.v > 1 - EDGE) go = -(input.v - (1 - EDGE)) / EDGE;
+    }
+  } else {
+    turn = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
+    go = (keys.fwd ? 1 : 0) - (keys.back ? 1 : 0);
+  }
+  player.yaw -= turn * TURN_SPEED * dt;
+  player.x = clamp(player.x - Math.sin(player.yaw) * go * WALK_SPEED * dt, WALK.minX, WALK.maxX);
+  player.z = clamp(player.z - Math.cos(player.yaw) * go * WALK_SPEED * dt, WALK.minZ, WALK.maxZ);
+  head.turn = turn; head.go = go;
+  placeCamera();
+  // light up the edge arrows
+  const show = mode === 'cam' ? 'flex' : 'none';
+  [['eL', -turn], ['eR', turn], ['eT', go], ['eB', -go]].forEach(([id, amt]) => {
+    $(id).style.display = show; $(id).style.opacity = (faceModel ? 0 : 0.22) + 0.78 * clamp(amt, 0, 1);
+  });
+}
+
+// ================= MAIN LOOP (runs every frame) =================
+let lastT = 0;
+function frame(t) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (t - lastT) / 1000 || 0); lastT = t;
+
+  if (input.grab && !wasGrab) { grabStart = performance.now(); grabUsed = false; }   // hands just came together / button just pressed
+  wasGrab = input.grab;
+
+  if (playing) {
+    // hand lost for too long = let go
+    if (mode === 'cam' && input.active && performance.now() - input.lastSeen > GRACE * 1000) { input.active = false; input.grab = false; }
+
+    walk(dt);
+    updateSlots(t);
+
+    if (held) {
+      if (!input.grab) drop(); else carry();
+    } else {
+      const h = input.active ? findHover() : null;
+      if (h !== hover) { if (hover) setGlow(hover, false); hover = h; if (hover) setGlow(hover, true); }
+      // mouse: the button must be pressed on the box (holding it down and sweeping over boxes doesn't grab)
+      if (hover && input.grab && !grabUsed && !tooFar(hover) && (mode === 'cam' || performance.now() - grabStart < 400)) { pickUp(hover); hover = null; grabUsed = true; }
+    }
+
+    physics(dt);
+
+    if (timing) $('time').textContent = ((performance.now() - startTime) / 1000).toFixed(1) + ' s';
+    updateSlots(t); updateScore();
+    if (!held && slots.length && slots.every(s => s.filled)) win();
+    updateHint();
+  }
+
+  updateHandModels();
+
+  // the on-screen ring halfway between your hands (camera mode only)
+  const ring = $('ring');
+  if (mode === 'cam' && input.active && playing && !held) {
+    ring.style.display = 'block';
+    ring.style.left = (input.u * window.innerWidth) + 'px';
+    ring.style.top = (input.v * window.innerHeight) + 'px';
+    ring.classList.toggle('grab', input.grab);
+  } else ring.style.display = 'none';
+
+  renderer.render(scene, camera);
+}
+let grabUsed = false, wasGrab = false, grabStart = 0;
+
+function win() {
+  playing = false; timing = false;
+  $('winTime').textContent = ((performance.now() - startTime) / 1000).toFixed(1) + ' s';
+  $('win').classList.remove('hidden');
+  [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, 0.22), i * 120));
+}
+
+// ================= HAND TRACKING (camera) =================
+const LINKS = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
+let hands = null, camAspect = 4 / 3;
+
+let faceModel = null;
+
+// runs every time the camera has looked for hands
+function onHand(res) {
+  const now = performance.now();
+  tracked = (res.multiHandLandmarks || []).slice(0, 2).map(lm => {
+    // distance between two hand points (corrected so the picture's shape doesn't stretch it)
+    const dist = (a, b) => Math.hypot((lm[a].x - lm[b].x) * camAspect, lm[a].y - lm[b].y);
+    const palm = Math.max(0.0001, dist(0, 9));
+    return { lm, palm, size: palm + dist(5, 17),          // size: bigger = hand is closer to the camera
+      x: 1 - lm[9].x, y: lm[9].y,                          // where it is in the (mirrored) camera picture
+      u: (1 - lm[9].x - 0.5) / REACH + 0.5, v: (lm[9].y - 0.5) / REACH + 0.5 };   // where that is on screen
+  }).sort((a, b) => a.u - b.u);
+  trackedAt = now;
+
+  if (tracked.length === 2) {
+    const L = tracked[0], R = tracked[1];
+    // how far apart the hands are, measured in palm lengths
+    const apart = Math.hypot((R.x - L.x) * camAspect, R.y - L.y) / ((L.palm + R.palm) / 2);
+    if (apart < HOLD_CLOSE) input.grab = true;
+    else if (apart > HOLD_OPEN) input.grab = false;
+
+    const u = clamp((L.u + R.u) / 2, 0, 1), v = clamp((L.v + R.v) / 2, 0, 1), size = (L.size + R.size) / 2;
+    const roll = Math.atan2(-(R.v - L.v) * window.innerHeight, (R.u - L.u) * window.innerWidth);   // tilt of the line between the hands
+    if (!input.active) { input.u = u; input.v = v; input.size = size; input.roll = roll; }
+    else {
+      input.u += (u - input.u) * SMOOTH; input.v += (v - input.v) * SMOOTH;
+      input.size += (size - input.size) * 0.2; input.roll += (roll - input.roll) * 0.3;
+    }
+    input.active = true; input.lastSeen = now;
+  }
+  drawCorner();
+}
+
+// runs every time the camera has looked for your face (used for walking)
+function onFace(res) {
+  let best = null;
+  for (const d of (res.detections || [])) if (!best || d.boundingBox.width > best.width) best = d.boundingBox;   // nearest face
+  if (!best) return;
+  const x = 1 - best.xCenter, w = best.width;
+  if (performance.now() - head.lastSeen > 700) { head.x = x; head.w = w; }
+  else { head.x += (x - head.x) * 0.4; head.w += (w - head.w) * 0.4; }
+  head.lastSeen = performance.now();
+  if (head.x0 === null) {                       // first second: learn where your head normally is
+    head.samples.push([x, w]);
+    if (head.samples.length >= 10) {
+      head.x0 = head.samples.reduce((a, q) => a + q[0], 0) / head.samples.length;
+      head.w0 = head.samples.reduce((a, q) => a + q[1], 0) / head.samples.length;
+    }
+  }
+}
+
+// small picture in the corner: your hands' outlines and a dot showing which way you're walking
+function drawCorner() {
+  const g = $('handView').getContext('2d'), W = 240, H = 180;
+  g.clearRect(0, 0, W, H);
+  g.lineWidth = 3; g.lineCap = 'round'; g.strokeStyle = input.grab ? '#5dff8f' : '#ffffff';
+  for (const h of tracked) {
+    g.beginPath();
+    for (const [a, b] of LINKS) { g.moveTo((1 - h.lm[a].x) * W, h.lm[a].y * H); g.lineTo((1 - h.lm[b].x) * W, h.lm[b].y * H); }
+    g.stroke();
+  }
+  if (faceModel) {
+    const cx = W - 30, cy = 30;
+    g.lineWidth = 2; g.strokeStyle = 'rgba(255,255,255,.5)';
+    g.beginPath(); g.arc(cx, cy, 22, 0, 7); g.stroke();
+    g.fillStyle = head.x0 === null ? '#ffd27a' : (head.turn || head.go) ? '#5dff8f' : '#ffffff';
+    g.beginPath(); g.arc(cx + head.turn * 16, cy - head.go * 16, 6, 0, 7); g.fill();
+  }
+}
+
+// ================= 3D HANDS =================
+function makeHandModel() {
+  const skin = new THREE.MeshStandardMaterial({ color: 0xf0c8a4, roughness: 0.6 });
+  const g = new THREE.Group();
+  const joints = [], bones = [], pts = [];
+  const ball = new THREE.SphereGeometry(1, 12, 10), stick = new THREE.CylinderGeometry(1, 1, 1, 10);
+  for (let i = 0; i < 21; i++) {
+    const m = new THREE.Mesh(ball, skin); m.scale.setScalar(i === 0 ? 0.05 : 0.036); m.castShadow = true;
+    g.add(m); joints.push(m); pts.push(new THREE.Vector3());
+  }
+  const links = LINKS.concat([[0, 9], [0, 13]]);          // two extra bones fill in the palm
+  for (const l of links) { const m = new THREE.Mesh(stick, skin); m.castShadow = true; g.add(m); bones.push(m); }
+  g.visible = false; scene.add(g);
+  return { g, joints, bones, pts, links };
+}
+
+let UP = null;
+function updateHandModels() {
+  if (!handModels.length) return;
+  const fresh = mode === 'cam' && playing && performance.now() - trackedAt < 300;
+  UP = UP || new THREE.Vector3(0, 1, 0);
+  const dir = new THREE.Vector3(), target = new THREE.Vector3();
+  if (held) held.mesh.updateMatrixWorld();
+  for (let i = 0; i < 2; i++) {
+    const m = handModels[i], h = fresh ? tracked[i] : null;
+    if (!h) { m.g.visible = false; continue; }
+
+    // shape: copy the real hand's finger positions
+    const c = h.lm[9], k = HAND_SIZE / h.palm;
+    for (let j = 0; j < 21; j++) {
+      m.pts[j].set((c.x - h.lm[j].x) * camAspect * k, (c.y - h.lm[j].y) * k, (c.z - h.lm[j].z) * camAspect * k);
+      m.joints[j].position.copy(m.pts[j]);
+    }
+    m.links.forEach(([a, b], n) => {
+      const bone = m.bones[n];
+      dir.subVectors(m.pts[b], m.pts[a]);
+      const len = Math.max(0.0001, dir.length());
+      bone.position.addVectors(m.pts[a], m.pts[b]).multiplyScalar(0.5);
+      bone.scale.set(0.03, len, 0.03);
+      bone.quaternion.setFromUnitVectors(UP, dir.divideScalar(len));
+    });
+
+    // place: on the sides of the carried box, or floating in front of you
+    if (held && tracked.length === 2) {
+      target.set((i === 0 ? -1 : 1) * (BOX / 2 + 0.06), 0, 0.22);
+      held.mesh.localToWorld(target);
+    } else {
+      raycaster.setFromCamera({ x: h.u * 2 - 1, y: -(h.v * 2 - 1) }, camera);
+      target.copy(raycaster.ray.origin).addScaledVector(raycaster.ray.direction, FREE_DEPTH);
+    }
+    if (!m.g.visible) m.g.position.copy(target); else m.g.position.lerp(target, 0.6);
+    m.g.quaternion.copy(camera.quaternion);
+    m.g.visible = true;
+  }
+}
+
+async function startCamera() {
+  const msg = $('msg');
+  msg.textContent = 'Starting the camera…';
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' }, audio: false });
+  } catch (e) {
+    msg.textContent = 'Could not use the camera. Allow camera access, or play with mouse / touch.';
+    return false;
+  }
+  const video = $('cam');
+  video.srcObject = stream;
+  await video.play();
+  camAspect = (video.videoWidth || 640) / (video.videoHeight || 480);
+
+  msg.textContent = 'Downloading hand tracking…';
+  let base = null;
+  for (const u of MP_URLS) {
+    try { await loadScript([u + 'hands.js']); base = u; break; } catch (e) {}
+  }
+  if (!base || !window.Hands) {
+    msg.textContent = 'Could not download hand tracking. Check the internet, or play with mouse / touch.';
+    stream.getTracks().forEach(t => t.stop());
+    return false;
+  }
+  hands = new Hands({ locateFile: f => base + f });
+  hands.setOptions({ maxNumHands: 2, modelComplexity: 0, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+  hands.onResults(onHand);
+
+  // the head finder (for walking with your body)
+  msg.textContent = 'Downloading the head finder…';
+  try {
+    let fbase = null;
+    for (const u of FACE_URLS) {
+      try { await loadScript([u + 'face_detection.js']); fbase = u; break; } catch (e) {}
+    }
+    if (!fbase || !window.FaceDetection) throw new Error('not downloaded');
+    const f = new FaceDetection({ locateFile: x => fbase + x });
+    f.setOptions({ model: 'short', minDetectionConfidence: 0.5 });
+    f.onResults(onFace);
+    await f.initialize();
+    faceModel = f;
+  } catch (e) { faceModel = null; }     // if it can't load, walking falls back to hands at the screen edges
+
+  // keep sending camera pictures to the hand tracker (and, ten times a second, to the head finder)
+  let busy = false, faceAt = 0;
+  const tick = async () => {
+    if (!busy && video.readyState >= 2) {
+      busy = true;
+      try { await hands.send({ image: video }); } catch (e) {}
+      if (faceModel && performance.now() - faceAt > 100) {
+        faceAt = performance.now();
+        try { await faceModel.send({ image: video }); } catch (e) {}
+      }
+      busy = false;
+    }
+    requestAnimationFrame(tick);
+  };
+  tick();
+  msg.textContent = '';
+  return true;
+}
+
+// ================= MOUSE / TOUCH =================
+function setupPointer() {
+  const c = $('scene');
+  const move = e => { if (mode !== 'mouse') return; input.u = e.clientX / window.innerWidth; input.v = e.clientY / window.innerHeight; input.active = true; };
+  c.addEventListener('pointermove', move);
+  c.addEventListener('pointerdown', e => { if (mode !== 'mouse') return; move(e); input.grab = true; try { c.setPointerCapture(e.pointerId); } catch (err) {} });
+  const up = e => { if (mode !== 'mouse') return; input.grab = false; if (e.pointerType !== 'mouse') input.active = false; };
+  c.addEventListener('pointerup', up);
+  c.addEventListener('pointercancel', up);
+  c.addEventListener('wheel', e => { if (mode !== 'mouse') return; e.preventDefault(); mouseDepth = clamp(mouseDepth * Math.exp(-e.deltaY * 0.0012), 0.3, 3); }, { passive: false });
+  const KEYMAP = { w: 'fwd', arrowup: 'fwd', s: 'back', arrowdown: 'back', a: 'left', arrowleft: 'left', d: 'right', arrowright: 'right' };
+  window.addEventListener('keydown', e => {
+    if (mode !== 'mouse') return;
+    const k = e.key.toLowerCase();
+    if (KEYMAP[k]) { keys[KEYMAP[k]] = true; e.preventDefault(); }
+    if (k === 'e') mouseDepth = clamp(mouseDepth * 1.08, 0.3, 3);     // push the box away
+    if (k === 'q') mouseDepth = clamp(mouseDepth / 1.08, 0.3, 3);     // pull it closer
+  });
+  window.addEventListener('keyup', e => { const k = e.key.toLowerCase(); if (KEYMAP[k]) keys[KEYMAP[k]] = false; });
+  window.addEventListener('blur', () => { keys.left = keys.right = keys.fwd = keys.back = false; });
+  // on-screen walk buttons
+  document.querySelectorAll('#pad button').forEach(b => {
+    const set = on => e => { e.preventDefault(); keys[b.dataset.k] = on; b.classList.toggle('on', on); };
+    b.addEventListener('pointerdown', set(true));
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(n => b.addEventListener(n, set(false)));
+  });
+}
+
+// ================= MENU BUTTONS =================
+async function begin(useCam) {
+  try { audio = audio || new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+  $('startCam').disabled = $('startMouse').disabled = true;
+  let ok = true;
+  if (useCam && !hands) ok = await startCamera();
+  $('startCam').disabled = $('startMouse').disabled = false;
+  if (!ok) return;
+  mode = useCam ? 'cam' : 'mouse';
+  input.active = false; input.grab = false;
+  $('handView').style.display = useCam ? 'block' : 'none';
+  $('pad').style.display = useCam ? 'none' : 'grid';
+  $('recentre').style.display = useCam && faceModel ? 'block' : 'none';
+  document.body.classList.toggle('mouse', !(useCam && faceModel));
+  $('menu').classList.add('hidden');
+  newGame();
+}
+
+document.querySelectorAll('.level').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.level').forEach(x => x.classList.remove('on'));
+  b.classList.add('on'); level = b.dataset.n;
+}));
+$('startCam').addEventListener('click', () => begin(true));
+$('startMouse').addEventListener('click', () => begin(false));
+$('again').addEventListener('click', newGame);
+$('restart').addEventListener('click', () => { if (mode) newGame(); });
+$('recentre').addEventListener('click', () => { head.x0 = null; head.samples = []; });   // learn again where your head normally is
+$('toMenu').addEventListener('click', () => { playing = false; $('win').classList.add('hidden'); $('menu').classList.remove('hidden'); });
+
+// ================= START =================
+loadScript(THREE_URLS).then(() => {
+  buildScene();
+  handModels = [makeHandModel(), makeHandModel()];
+  placeCamera();
+  setupPointer();
+  requestAnimationFrame(frame);
+}).catch(() => { $('msg').textContent = 'Could not download the 3D library. Check the internet and reload.'; });
+</script>
+</body>
+</html>
