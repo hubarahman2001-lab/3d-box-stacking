@@ -16,9 +16,9 @@
   .pill { background: rgba(10, 14, 24, .72); border: 1px solid rgba(255,255,255,.14); border-radius: 999px;
     padding: 8px 14px; font-size: 15px; font-weight: 600; }
   #hint { font-weight: 500; opacity: .92; }
-  #restart, #recentre { pointer-events: auto; cursor: pointer; color: #fff; font: inherit; font-size: 15px; font-weight: 600; }
-  #recentre { margin-left: auto; display: none; }
-  body.mouse #restart { margin-left: auto; }
+  #hud button.pill { pointer-events: auto; cursor: pointer; color: #fff; font: inherit; font-size: 15px; font-weight: 600; }
+  #hudRight { margin-left: auto; display: flex; gap: 8px; }
+  #recentre { display: none; }
 
   /* the ring that shows where your hand is pointing */
   #ring { position: fixed; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%;
@@ -31,8 +31,9 @@
     background: rgba(10, 14, 24, .72); border: 1px solid rgba(255,255,255,.14); display: none; }
 
   /* start screen and win screen */
-  .overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
-    background: rgba(12, 16, 26, .86); padding: 16px; overflow: auto; }
+  /* the card is centred with margin: auto so a tall card scrolls instead of being cut off at the top */
+  .overlay { position: fixed; inset: 0; display: flex; background: rgba(12, 16, 26, .86); padding: 16px; overflow: auto; }
+  .overlay .card { margin: auto; }
   .hidden { display: none !important; }
   .card { width: min(480px, 100%); background: #1e2638; border: 1px solid rgba(255,255,255,.12);
     border-radius: 18px; padding: 24px; text-align: center; }
@@ -40,10 +41,15 @@
   p { margin: 6px 0 14px; line-height: 1.45; color: #c9d2e6; }
   .how { text-align: left; background: rgba(255,255,255,.05); border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; }
   .how div { margin: 5px 0; font-size: 15px; color: #dfe6f5; }
-  .row { display: flex; gap: 8px; justify-content: center; margin-bottom: 14px; }
+  .row { display: flex; gap: 8px; justify-content: center; margin-bottom: 14px; flex-wrap: wrap; }
   button { font: inherit; border: 0; border-radius: 12px; padding: 12px 16px; cursor: pointer; font-weight: 700; }
-  .level { background: #2c3650; color: #fff; flex: 1; }
+  .level { background: #2c3650; color: #fff; flex: 1 1 30%; padding: 10px 8px; line-height: 1.25; }
+  .level small { display: block; font-weight: 500; font-size: 12px; opacity: .75; }
   .level.on { background: #fff; color: #1e2638; }
+  .tut { background: #2f7d55; color: #fff; width: 100%; margin-bottom: 14px; }
+  .tut.on { box-shadow: 0 0 0 3px #fff inset; }
+  #best, #winBest { color: #9fb0d4; font-size: 14px; margin: -6px 0 12px; min-height: 18px; }
+  #winBest.new { color: #5dff8f; font-weight: 700; }
   .main { background: #3d8bfd; color: #fff; width: 100%; font-size: 17px; margin-bottom: 8px; }
   .alt { background: transparent; color: #c9d2e6; width: 100%; border: 1px solid rgba(255,255,255,.2); }
   #msg { min-height: 20px; color: #ffd27a; font-size: 14px; margin: 10px 0 0; }
@@ -55,9 +61,15 @@
   .edge.t { top: 0; left: 18%; right: 18%; height: 11%; border-radius: 0 0 16px 16px; align-items: flex-end; padding-bottom: 4px; font-size: 18px; }
   .edge.b { bottom: 0; left: 18%; right: 18%; height: 11%; border-radius: 16px 16px 0 0; font-size: 18px; }
   /* walk buttons for mouse / touch */
-  #pad { position: fixed; left: 12px; bottom: 12px; display: none; grid-template-columns: repeat(3, 54px); grid-template-rows: repeat(2, 54px); gap: 6px; }
+  #pad { position: fixed; left: 12px; bottom: 12px; display: none; grid-template-columns: repeat(3, 54px) 64px; grid-template-rows: repeat(2, 54px); gap: 6px; }
   #pad button { background: rgba(10,14,24,.72); border: 1px solid rgba(255,255,255,.2); color: #fff; font-size: 20px; padding: 0; touch-action: none; user-select: none; -webkit-user-select: none; }
+  #pad button.depth { font-size: 13px; margin-left: 10px; }
   #pad button.on { background: #3d8bfd; }
+  /* arrow that points to the nearest box still to be placed, when none is on screen */
+  #find { position: fixed; display: none; width: 0; height: 0; pointer-events: none; }
+  #find span { position: absolute; left: -22px; top: -22px; width: 44px; height: 44px; border-radius: 50%;
+    background: rgba(255, 210, 60, .9); color: #1a1f2c; font-size: 22px; font-weight: 900;
+    display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 10px rgba(0,0,0,.4); }
   #winTime { font-size: 44px; font-weight: 800; margin: 8px 0 16px; color: #fff; }
 </style>
 </head>
@@ -69,16 +81,21 @@
   <div class="pill" id="score">Placed 0 / 6</div>
   <div class="pill" id="time">0.0 s</div>
   <div class="pill" id="hint">Hold a box with both hands</div>
-  <button class="pill" id="recentre">🧍 Re-centre</button>
-  <button class="pill" id="restart">↻ Restart</button>
+  <div id="hudRight">
+    <button class="pill" id="recentre" title="Re-centre (R)">🧍 Re-centre</button>
+    <button class="pill" id="mute" title="Sound on / off (M)">🔊</button>
+    <button class="pill" id="pause" title="Pause (P or Esc)">❚❚</button>
+    <button class="pill" id="restart">↻ Restart</button>
+  </div>
 </div>
 
 <div class="edge l" id="eL">◀</div><div class="edge r" id="eR">▶</div>
 <div class="edge t" id="eT">▲ walk forward</div><div class="edge b" id="eB">▼ walk back</div>
 <div id="pad">
-  <span></span><button data-k="fwd">▲</button><span></span>
-  <button data-k="left">◀</button><button data-k="back">▼</button><button data-k="right">▶</button>
+  <span></span><button data-k="fwd">▲</button><span></span><button class="depth" data-k="far">Push<br>away</button>
+  <button data-k="left">◀</button><button data-k="back">▼</button><button data-k="right">▶</button><button class="depth" data-k="near">Pull<br>near</button>
 </div>
+<div id="find"><span>➜</span></div>
 <div id="ring"></div>
 <canvas id="handView" width="240" height="180"></canvas>
 <video id="cam" playsinline muted style="display:none"></video>
@@ -90,16 +107,15 @@
     <div class="how">
       <div>🙌 <b>One hand each side of a box, bring them together</b> = lift it</div>
       <div>📦 <b>Move both hands</b> = move the box · tilt them = tilt it</div>
-      <div>🫸 <b>Hands closer to / further from the camera</b> = box nearer / deeper</div>
+      <div>🫸 <b>Hands closer to / further from the camera</b> = box nearer / deeper (leaning in doesn't move it)</div>
       <div>👐 <b>Move your hands apart</b> = put it down</div>
       <div>🧍 <b>Lean left / right</b> = turn · <b>lean in</b> = walk forward · <b>lean back</b> = walk back</div>
-      <div style="opacity:.75">Mouse: hold to carry · W A S D or arrows = walk / turn · wheel or Q / E = depth</div>
+      <div>🙆 <b>Both hands up at the top of the picture</b> for a moment = re-centre</div>
+      <div style="opacity:.75">Mouse: hold to carry · W A S D or arrows = walk / turn · wheel or Q / E = depth · P = pause · M = sound</div>
     </div>
-    <div class="row">
-      <button class="level" data-n="easy">Easy · Wall</button>
-      <button class="level on" data-n="normal">Normal · Pyramid</button>
-      <button class="level" data-n="hard">Hard · Big pyramid</button>
-    </div>
+    <button class="tut" id="tutorial">👋 New here? Try the tutorial first</button>
+    <div class="row" id="levels"></div>
+    <div id="best"></div>
     <button class="main" id="startCam">🎥 Start with camera</button>
     <button class="alt" id="startMouse">Play with mouse / touch</button>
     <p id="msg"></p>
@@ -108,11 +124,22 @@
 
 <div id="win" class="overlay hidden">
   <div class="card">
-    <h1>🎉 Built it!</h1>
+    <h1 id="winTitle">🎉 Built it!</h1>
     <p>Your time</p>
     <div id="winTime">0.0 s</div>
-    <button class="main" id="again">Play again</button>
+    <div id="winBest"></div>
+    <button class="main" id="next">Next plan ▶</button>
+    <button class="alt" id="again" style="margin-bottom:8px">Play again</button>
     <button class="alt" id="toMenu">Back to menu</button>
+  </div>
+</div>
+
+<div id="paused" class="overlay hidden">
+  <div class="card">
+    <h1>Paused</h1>
+    <p>The clock has stopped.</p>
+    <button class="main" id="resume">▶ Carry on</button>
+    <button class="alt" id="pauseMenu">Back to menu</button>
   </div>
 </div>
 
@@ -147,12 +174,23 @@ const KINDS = [                  // the three kinds of box
   { letter: 'B', color: '#f2b632' },
   { letter: 'C', color: '#3d8bfd' }
 ];
-// THE PLANS: each line is one layer, bottom layer first. Change the letters to change what must be built.
-const LEVELS = {
-  easy:   [ ['A', 'B', 'C'], ['A', 'B', 'C'] ],
-  normal: [ ['A', 'B', 'C'], ['C', 'A'], ['B'] ],
-  hard:   [ ['A', 'B', 'C', 'A'], ['B', 'C', 'B'], ['C', 'A'], ['B'] ]
-};
+// THE PLANS, played in this order ("Next plan" goes down the list).
+// layers: one entry per layer, bottom layer first.
+//   A layer can be one row of letters:            ['A', 'B', 'C']
+//   or several rows, front row first (deeper plans): [ ['A', 'B'], ['C', '.'] ]   '.' = no box there
+//   Each row is centred, so a shorter row sits in the middle (that's how the pyramids work).
+// extra: spare boxes that are NOT in the plan, so you have to pick the right letter.
+const LEVELS = [
+  { id: 'wall',    name: 'Wall',        tag: 'Easy',   extra: 0, layers: [ ['A', 'B', 'C'], ['A', 'B', 'C'] ] },
+  { id: 'tower',   name: 'Tower',       tag: 'Easy',   extra: 1, layers: [ ['A'], ['B'], ['C'], ['A'] ] },
+  { id: 'pyramid', name: 'Pyramid',     tag: 'Normal', extra: 1, layers: [ ['A', 'B', 'C'], ['C', 'A'], ['B'] ] },
+  { id: 'lshape',  name: 'L-shape',     tag: 'Normal', extra: 2, layers: [ [['A', 'B', 'C'], ['C', '.', '.']], [['B', '.', '.'], ['A', '.', '.']] ] },
+  { id: 'cube',    name: 'Cube',        tag: 'Hard',   extra: 2, layers: [ [['A', 'B'], ['C', 'A']], [['B', 'C'], ['A', 'B']] ] },
+  { id: 'big',     name: 'Big pyramid', tag: 'Hard',   extra: 3, layers: [ ['A', 'B', 'C', 'A'], ['B', 'C', 'B'], ['C', 'A'], ['B'] ] }
+];
+// the tutorial: one box right in front of you
+const TUTORIAL = { id: 'tutorial', name: 'Tutorial', tag: '', extra: 0, layers: [ ['B'] ] };
+const RECENTRE_HOLD = 1.5;       // seconds both hands must stay up at the top of the picture to re-centre
 const GAP = 0.9;                 // distance between boxes that sit side by side in the plan
 const BUILD = { x: 0, z: -5.6, w: 6, d: 3 };                           // where the build zone is, and its size
 const ROOM = { minX: -7.4, maxX: 7.4, minZ: -7.4, maxZ: 8.4, maxY: 4.5 };   // boxes can't leave this space
@@ -194,10 +232,19 @@ function loadScript(urls) {
   });
 }
 
+// saved settings and best times (stay on this device only; the game works without them)
+function loadSaved(key, fallback) {
+  try { const v = localStorage.getItem('boxStack.' + key); return v === null ? fallback : JSON.parse(v); } catch (e) { return fallback; }
+}
+function save(key, value) {
+  try { localStorage.setItem('boxStack.' + key, JSON.stringify(value)); } catch (e) {}
+}
+
 // ================= SOUND =================
 let audio = null;
+let muted = loadSaved('muted', false);
 function beep(freq, len, type, vol) {
-  if (!audio) return;
+  if (!audio || muted) return;
   try {
     const o = audio.createOscillator(), g = audio.createGain();
     o.type = type || 'sine'; o.frequency.value = freq;
@@ -211,9 +258,13 @@ function beep(freq, len, type, vol) {
 let renderer, scene, camera, raycaster, landRing;
 let boxes = [];                  // every box: { mesh, kind, vy, resting, held, wasRight }
 let slots = [];                  // every spot in the plan: { x, y, z, level, kind, ghost, edges, filled, open }
-let level = 'normal';
+let level = LEVELS.find(l => l.id === loadSaved('level', 'pyramid')) || LEVELS[2];   // the plan being built
 const player = { x: 0, z: 4.5, yaw: 0 };   // where you stand and which way you face
-const keys = { left: false, right: false, fwd: false, back: false };
+const PLAYER_R = 0.35;           // how wide you are (you can't walk through boxes)
+const keys = { left: false, right: false, fwd: false, back: false, far: false, near: false };
+let paused = false, pausedAt = 0;
+let tut = null;                  // tutorial progress: { step, sawLeft, sawRight, startZ }
+let recentreFrom = 0;            // when both hands went up to re-centre (0 = they aren't up)
 let magnet = null;               // the plan spot the carried box is being pulled to
 let note = '', noteUntil = 0;    // a short message shown in the hint pill
 let mode = null;                 // 'cam' or 'mouse'
@@ -230,6 +281,8 @@ let tracked = [], trackedAt = 0; // the hands the camera sees right now (left on
 let handModels = [];             // the two 3D hands
 const head = { x: 0.5, w: 0.2, x0: null, w0: null, samples: [], lastSeen: 0, turn: 0, go: 0 };   // where your head is, and where it normally is (x0, w0)
 let grabSize = 1;                // hand size at the moment the box was picked up
+let grabFace = 1;                // face size at that moment (leaning in makes both bigger, so it cancels out)
+let camStream = null;            // the running camera, so it can be switched off in the menu
 let mouseDepth = 1;              // depth control for mouse wheel / keys
 
 // ================= BUILD THE 3D ROOM =================
@@ -325,15 +378,26 @@ function buildPlan() {
   slots = [];
   const geo = new THREE.BoxGeometry(BOX * 0.98, BOX * 0.98, BOX * 0.98);
   const edgeGeo = new THREE.EdgesGeometry(geo);
-  LEVELS[level].forEach((row, lv) => row.forEach((letter, i) => {
-    const kind = KINDS.findIndex(k => k.letter === letter);
-    const s = { x: BUILD.x + (i - (row.length - 1) / 2) * GAP, y: BOX / 2 + lv * BOX, z: BUILD.z, level: lv, kind, filled: false, open: false };
-    s.ghost = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: labelTexture(KINDS[kind].color, letter), transparent: true, opacity: 0.2, depthWrite: false }));
-    s.edges = new THREE.LineSegments(edgeGeo, new THREE.LineBasicMaterial({ color: KINDS[kind].color, transparent: true }));
-    s.ghost.position.set(s.x, s.y, s.z); s.edges.position.copy(s.ghost.position);
-    scene.add(s.ghost); scene.add(s.edges);
-    slots.push(s);
-  }));
+  level.layers.forEach((layer, lv) => {
+    const rows = Array.isArray(layer[0]) ? layer : [layer];          // one row, or several rows front to back
+    rows.forEach((row, r) => row.forEach((letter, i) => {
+      const kind = KINDS.findIndex(k => k.letter === letter);
+      if (kind < 0) return;                                          // '.' = no box here
+      const s = { x: BUILD.x + (i - (row.length - 1) / 2) * GAP, y: BOX / 2 + lv * BOX,
+        z: BUILD.z + ((rows.length - 1) / 2 - r) * GAP, level: lv, kind, filled: false, open: false };
+      s.ghost = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: labelTexture(KINDS[kind].color, letter), transparent: true, opacity: 0.2, depthWrite: false }));
+      s.edges = new THREE.LineSegments(edgeGeo, new THREE.LineBasicMaterial({ color: KINDS[kind].color, transparent: true }));
+      s.ghost.position.set(s.x, s.y, s.z); s.edges.position.copy(s.ghost.position);
+      scene.add(s.ghost); scene.add(s.edges);
+      slots.push(s);
+    }));
+  });
+}
+
+// is this point inside the build zone (with a little margin)?
+function inZone(x, z, m) {
+  m = m || 0;
+  return Math.abs(x - BUILD.x) < BUILD.w / 2 + m && Math.abs(z - BUILD.z) < BUILD.d / 2 + m;
 }
 
 // works out which plan spots are done, and which can be filled next (the ones with boxes underneath)
@@ -343,7 +407,7 @@ function updateSlots(t) {
       Math.abs(b.mesh.position.x - s.x) < 0.12 && Math.abs(b.mesh.position.z - s.z) < 0.12 && Math.abs(b.mesh.position.y - s.y) < 0.12);
   }
   for (const s of slots) {
-    s.open = !s.filled && slots.every(o => o.level !== s.level - 1 || Math.abs(o.x - s.x) > BOX * 0.95 || o.filled);
+    s.open = !s.filled && slots.every(o => o.level !== s.level - 1 || Math.abs(o.x - s.x) > BOX * 0.95 || Math.abs(o.z - s.z) > BOX * 0.95 || o.filled);
     const wanted = held && s.open && held.kind === s.kind;          // the carried box belongs here
     s.ghost.visible = s.edges.visible = !s.filled;
     s.ghost.material.opacity = wanted ? 0.4 + 0.2 * Math.sin(t / 130) : s.open ? 0.24 : 0.07;
@@ -358,25 +422,40 @@ function newGame() {
   head.x0 = null; head.samples = [];       // measure again where your head normally is
   buildPlan();
   player.x = 0; player.z = 4.5; player.yaw = 0;
+  placeCamera();
+  const view = new THREE.Vector3();
+  const inView = p => { view.copy(p).project(camera); return view.z < 1 && Math.abs(view.x) < 0.85 && view.y > -0.8 && view.y < 0.6; };
   const geo = new THREE.BoxGeometry(BOX, BOX, BOX);
-  for (const s of slots) {                 // one box for every spot in the plan
-    const kind = s.kind;
+  // one box for every spot in the plan, plus the spare ones
+  const kinds = slots.map(s => s.kind);
+  for (let i = 0; i < (level.extra || 0); i++) kinds.push(Math.floor(Math.random() * KINDS.length));
+  kinds.sort(() => Math.random() - 0.5);
+  for (const kind of kinds) {
     const mat = new THREE.MeshStandardMaterial({ map: labelTexture(KINDS[kind].color, KINDS[kind].letter), roughness: 0.7 });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.castShadow = true; mesh.receiveShadow = true; mesh.rotation.order = 'YXZ';
-    // find a free spot somewhere in the room (not in the build zone, not where you start)
-    for (let tries = 0; tries < 300; tries++) {
-      mesh.position.set(-6.5 + Math.random() * 13, BOX / 2, -1.5 + Math.random() * 9);
-      const farFromMe = Math.hypot(mesh.position.x - player.x, mesh.position.z - player.z) > 1.6;
-      if (farFromMe && boxes.every(o => Math.abs(o.mesh.position.x - mesh.position.x) > BOX * 1.4 || Math.abs(o.mesh.position.z - mesh.position.z) > BOX * 1.4)) break;
+    const free = () => boxes.every(o => Math.abs(o.mesh.position.x - mesh.position.x) > BOX * 1.4 || Math.abs(o.mesh.position.z - mesh.position.z) > BOX * 1.4);
+    if (level === TUTORIAL) mesh.position.set(0.6, BOX / 2, 1.6);   // right in front of you
+    else {
+      // find a free spot you can see from where you start (not in the build zone); if the room is too full, anywhere
+      let ok = false;
+      for (let tries = 0; tries < 400 && !ok; tries++) {
+        mesh.position.set(-6.5 + Math.random() * 13, BOX / 2, -3.2 + Math.random() * 5.6);
+        ok = inView(mesh.position) && !inZone(mesh.position.x, mesh.position.z, 0.9) && free();
+      }
+      for (let tries = 0; tries < 300 && !ok; tries++) {
+        mesh.position.set(-6.5 + Math.random() * 13, BOX / 2, -3.2 + Math.random() * 10.5);
+        ok = Math.hypot(mesh.position.x - player.x, mesh.position.z - player.z) > 1.6 && free();
+      }
     }
     scene.add(mesh);
     boxes.push({ mesh, kind, vy: 0, resting: true, held: false, wasRight: false });
   }
-  timing = false; startTime = 0; playing = true;
+  tut = level === TUTORIAL ? { step: 0, sawLeft: false, sawRight: false, startZ: player.z, yaw0: 0 } : null;
+  timing = false; startTime = 0; playing = true; paused = false;
   $('time').textContent = '0.0 s';
-  $('win').classList.add('hidden');
-  placeCamera(); updateSlots(0); updateScore();
+  $('win').classList.add('hidden'); $('paused').classList.add('hidden');
+  updateSlots(0); updateScore();
 }
 
 // is this box sitting in a spot of the plan that wants its letter?
@@ -404,17 +483,45 @@ function slotNear(b, reach) {
 
 // height of whatever is underneath a box (floor, a pad, or another box)
 function supportUnder(b) {
+  return supportsUnder(b).h;
+}
+
+// what is underneath a box: its height, and the boxes it sits on at that height
+function supportsUnder(b) {
   const p = b.mesh.position;
-  let h = 0;
+  let h = 0, list = [];
   for (const o of boxes) {
     if (o === b || o.held) continue;
     const q = o.mesh.position;
     if (Math.abs(p.x - q.x) < BOX * 0.95 && Math.abs(p.z - q.z) < BOX * 0.95) {
       const top = q.y + BOX / 2;
-      if (top <= p.y - BOX / 2 + 0.3) h = Math.max(h, top);
+      if (top > p.y - BOX / 2 + 0.3) continue;
+      if (top > h + 0.02) { h = top; list = [o]; }
+      else if (top > h - 0.02) list.push(o);
     }
   }
-  return h;
+  return { h, list };
+}
+
+// a box sticking out too far over the edge of the boxes under it slides off.
+// It stays up if its middle is over the boxes it sits on (two boxes side by side hold one in between).
+function slideOffEdge(b, list) {
+  if (!list.length) return false;
+  const p = b.mesh.position, half = BOX / 2;
+  const xs = list.map(o => o.mesh.position.x), zs = list.map(o => o.mesh.position.z);
+  const steady = p.x > Math.min(...xs) - half && p.x < Math.max(...xs) + half &&
+                 p.z > Math.min(...zs) - half && p.z < Math.max(...zs) + half;
+  if (steady) return false;
+  const was = p.clone();
+  for (const o of list) {                 // move it just past the edge, the way it was hanging
+    const q = o.mesh.position, dx = p.x - q.x, dz = p.z - q.z;
+    if (Math.abs(dx) >= Math.abs(dz)) p.x = q.x + Math.sign(dx || 1) * (BOX + 0.01);
+    else p.z = q.z + Math.sign(dz || 1) * (BOX + 0.01);
+  }
+  p.x = clamp(p.x, ROOM.minX, ROOM.maxX); p.z = clamp(p.z, ROOM.minZ, ROOM.maxZ);
+  if (supportsUnder(b).h >= was.y - half - 0.02) { p.copy(was); return false; }   // against a wall: nowhere to slide
+  liftOutOfBoxes(b);
+  return true;
 }
 
 // if a dropped box is stuck inside another box, lift it on top
@@ -436,7 +543,7 @@ function liftOutOfBoxes(b) {
 function physics(dt) {
   for (const b of boxes) {
     if (b.held) continue;
-    const p = b.mesh.position, ground = supportUnder(b) + BOX / 2;
+    const p = b.mesh.position, under = supportsUnder(b), ground = under.h + BOX / 2;
     if (p.y > ground + 0.001) {            // nothing underneath: fall
       b.resting = false;
       b.vy -= GRAVITY * dt;
@@ -444,6 +551,7 @@ function physics(dt) {
     }
     if (p.y <= ground + 0.001) {
       p.y = ground;
+      if (!b.resting && slideOffEdge(b, under.list)) { b.vy = 0; beep(200, 0.08, 'triangle', 0.1); continue; }   // tipped off the edge
       if (!b.resting) {                    // just landed
         b.resting = true; b.vy = 0;
         updateSlots(performance.now());
@@ -483,7 +591,7 @@ function setGlow(b, on) { b.mesh.material.emissive.setHex(on ? 0x444444 : 0x0000
 function pickUp(b) {
   held = b; b.held = true; b.resting = false; b.vy = 0; b.wasRight = false;
   holdDist = clamp(camera.position.distanceTo(b.mesh.position), 1.9, 3.0);   // a carried box is held close, at arm's length
-  grabSize = input.size; mouseDepth = 1;
+  grabSize = input.size; grabFace = head.w; mouseDepth = 1;
   if (!timing) { timing = true; startTime = performance.now(); }
   beep(520, 0.08);
   updateScore();
@@ -498,10 +606,12 @@ function drop() {
   if (s) { p.x = s.x; p.z = s.z; p.y = Math.max(p.y, s.y); }      // click into the plan
   else {
     // dropped on a plan spot that wants a different letter, or one that isn't ready yet?
+    // Then it's pushed out of the build zone, so it can't get in the way of the right box.
     const wrong = slots.find(o => !o.filled && Math.hypot(p.x - o.x, p.z - o.z) < SNAP);
     if (wrong) {
-      note = wrong.kind !== b.kind ? 'That spot is for ' + KINDS[wrong.kind].letter + ' boxes' : 'Fill the layer underneath first';
-      noteUntil = performance.now() + 2500;
+      note = (wrong.kind !== b.kind ? 'That spot is for ' + KINDS[wrong.kind].letter + ' boxes' : 'Fill the layer underneath first') + ' — moved it out of the way';
+      noteUntil = performance.now() + 2800;
+      pushOutOfZone(b);
     }
   }
   magnet = null;
@@ -510,10 +620,28 @@ function drop() {
   setGlow(b, false);
 }
 
+// move a box to the floor just in front of the build zone, somewhere free
+function pushOutOfZone(b) {
+  const p = b.mesh.position;
+  const z = BUILD.z + BUILD.d / 2 + BOX * 0.9;
+  let bestX = p.x, bestD = Infinity;
+  for (let x = ROOM.minX + BOX; x <= ROOM.maxX - BOX; x += BOX * 1.25) {
+    const taken = boxes.some(o => o !== b && Math.abs(o.mesh.position.x - x) < BOX * 1.1 && Math.abs(o.mesh.position.z - z) < BOX * 1.1);
+    if (!taken && Math.abs(x - p.x) < bestD) { bestD = Math.abs(x - p.x); bestX = x; }
+  }
+  p.set(bestX, BOX / 2 + 0.3, z);         // a little drop so it lands with a thud
+}
+
 function carry() {
   const ray = pointerRay();
-  // hand closer to the camera = bigger hand = box comes nearer
-  const ratio = mode === 'cam' ? grabSize / Math.max(0.0001, input.size) : mouseDepth;
+  // hand closer to the camera = bigger hand = box comes nearer.
+  // Leaning in to walk makes your hands look bigger too, so when the head finder is working the hand size
+  // is compared with the face size: leaning makes both bigger, only pushing your hands out changes the box.
+  let ratio = mouseDepth;
+  if (mode === 'cam') {
+    ratio = grabSize / Math.max(0.0001, input.size);
+    if (headFresh() && grabFace > 0) ratio *= head.w / grabFace;
+  }
   let d = clamp(holdDist * Math.pow(ratio, DEPTH_GAIN), 1.5, 5.5);
   const minY = BOX / 2 + 0.02;
   if (ray.direction.y < 0) d = Math.min(d, (minY - ray.origin.y) / ray.direction.y);   // don't go through the floor
@@ -553,10 +681,13 @@ function updateHint() {
   const cam = mode === 'cam';
   const twoHands = performance.now() - trackedAt < 400 && tracked.length === 2;
   let t;
-  if (performance.now() < noteUntil) t = note;
+  if (recentreFrom > 0) t = 'Keep both hands up to re-centre… ' + Math.max(0, Math.ceil(RECENTRE_HOLD - (performance.now() - recentreFrom) / 1000)) + '';
+  else if (performance.now() < noteUntil) t = note;
+  else if (tut) t = tutorialHint(cam, twoHands);
   else if (held) {
     const letter = KINDS[held.kind].letter;
     if (magnet || slotNear(held, SNAP)) t = cam ? 'Move your hands apart to place it ✔' : 'Let go to place it ✔';
+    else if (!slots.some(s => !s.filled && s.kind === held.kind)) t = 'No spot needs ' + letter + ' any more — it’s a spare, put it down outside the zone';
     else if (!slots.some(s => s.open && s.kind === held.kind)) t = 'No free spot for ' + letter + ' yet — build the layer underneath first';
     else t = 'Carry it to a glowing ' + letter + ' spot in the build zone';
   }
@@ -567,6 +698,41 @@ function updateHint() {
   else t = cam ? (faceModel ? 'Lean left / right to turn · lean in to walk · hold a box with both hands' : 'Hands at the screen edges = turn / walk · hold a box with both hands')
                : 'W A S D = walk / turn · hold on a box to carry it';
   if ($('hint').textContent !== t) $('hint').textContent = t;
+}
+
+// ================= TUTORIAL =================
+// steps: 0 show both hands · 1 turn left and right · 2 lift the box · 3 walk to the build zone · 4 put it down
+function tutorialUpdate() {
+  if (!tut) return;
+  const cam = mode === 'cam';
+  const twoHands = performance.now() - trackedAt < 400 && tracked.length === 2;
+  const before = tut.step;
+  if (tut.step === 0 && (!cam || twoHands)) tut.step = 1;
+  if (tut.step === 1) {
+    if (head.turn < -0.4) tut.sawLeft = true;
+    if (head.turn > 0.4) tut.sawRight = true;
+    if (tut.sawLeft && tut.sawRight && Math.abs(head.turn) < 0.1) tut.step = 2;
+  }
+  if (tut.step === 2 && held) { tut.step = 3; tut.startZ = player.z; }
+  if (tut.step >= 3 && !held) tut.step = 2;                           // dropped it on the way: lift it again
+  if (tut.step === 3 && (magnet || slotNear(held, SNAP))) tut.step = 4;   // close enough: the box is pulled onto its spot
+  else if (tut.step === 4 && !(magnet || slotNear(held, SNAP))) tut.step = 3;   // moved away from it again
+  if (tut.step > before) beep(740, 0.1);
+}
+
+function tutorialHint(cam, twoHands) {
+  const face = cam && faceModel;
+  const steps = [
+    'Show both hands to the camera 🙌',
+    !tut.sawLeft ? (face ? 'Lean left to turn left' : cam ? 'Move your hands to the left edge to turn' : 'Press A (or ◀) to turn left')
+                 : !tut.sawRight ? (face ? 'Now lean right to turn right' : cam ? 'Now the right edge' : 'Now press D (or ▶) to turn right')
+                 : (face ? 'Sit back in the middle again' : 'Good! Now stop turning'),
+    cam ? (twoHands ? 'Put your hands either side of the box and bring them together to lift it' : 'Show both hands to the camera 🙌')
+        : 'Point at the box and hold the button down to lift it',
+    (face ? 'Lean in to walk' : cam ? 'Hands at the top edge = walk' : 'Press W (or ▲) to walk') + ' to the yellow BUILD ZONE, until the box jumps onto its spot',
+    (cam ? 'Move your hands apart' : 'Let go') + ' to put it down ✔'
+  ];
+  return 'Tutorial ' + (tut.step + 1) + '/5 · ' + steps[tut.step];
 }
 
 // ================= WALKING =================
@@ -593,6 +759,20 @@ function walk(dt) {
   player.yaw -= turn * TURN_SPEED * dt;
   player.x = clamp(player.x - Math.sin(player.yaw) * go * WALK_SPEED * dt, WALK.minX, WALK.maxX);
   player.z = clamp(player.z - Math.cos(player.yaw) * go * WALK_SPEED * dt, WALK.minZ, WALK.maxZ);
+  // you can't walk through boxes standing on the floor: slide along them instead
+  for (const b of boxes) {
+    if (b.held) continue;
+    const q = b.mesh.position;
+    if (q.y > BOX * 1.2) continue;                           // only the ones on the floor
+    const cx = clamp(player.x, q.x - BOX / 2, q.x + BOX / 2), cz = clamp(player.z, q.z - BOX / 2, q.z + BOX / 2);
+    const dx = player.x - cx, dz = player.z - cz, d = Math.hypot(dx, dz);
+    if (d >= PLAYER_R) continue;
+    if (d > 0.0001) { player.x = cx + dx / d * PLAYER_R; player.z = cz + dz / d * PLAYER_R; }
+    else player.z = q.z + BOX / 2 + PLAYER_R;                // standing right inside one: step out the front
+  }
+  player.x = clamp(player.x, WALK.minX, WALK.maxX); player.z = clamp(player.z, WALK.minZ, WALK.maxZ);
+  if (keys.far) mouseDepth = clamp(mouseDepth * Math.exp(1.2 * dt), 0.3, 3);    // on-screen depth buttons
+  if (keys.near) mouseDepth = clamp(mouseDepth * Math.exp(-1.2 * dt), 0.3, 3);
   head.turn = turn; head.go = go;
   placeCamera();
   // light up the edge arrows
@@ -611,11 +791,12 @@ function frame(t) {
   if (input.grab && !wasGrab) { grabStart = performance.now(); grabUsed = false; }   // hands just came together / button just pressed
   wasGrab = input.grab;
 
-  if (playing) {
+  if (playing && !paused) {
     // hand lost for too long = let go
     if (mode === 'cam' && input.active && performance.now() - input.lastSeen > GRACE * 1000) { input.active = false; input.grab = false; }
 
     walk(dt);
+    tutorialUpdate();
     updateSlots(t);
 
     if (held) {
@@ -634,12 +815,13 @@ function frame(t) {
     if (!held && slots.length && slots.every(s => s.filled)) win();
     updateHint();
   }
+  updateFinder();
 
   updateHandModels();
 
   // the on-screen ring halfway between your hands (camera mode only)
   const ring = $('ring');
-  if (mode === 'cam' && input.active && playing && !held) {
+  if (mode === 'cam' && input.active && playing && !paused && !held) {
     ring.style.display = 'block';
     ring.style.left = (input.u * window.innerWidth) + 'px';
     ring.style.top = (input.v * window.innerHeight) + 'px';
@@ -650,11 +832,71 @@ function frame(t) {
 }
 let grabUsed = false, wasGrab = false, grabStart = 0;
 
+// when no box that's still needed is on screen, an arrow at the edge points to the nearest one
+function updateFinder() {
+  const el = $('find');
+  if (!playing || paused || held) { el.style.display = 'none'; return; }
+  const needed = boxes.filter(b => !b.held && !isRight(b) && slots.some(s => !s.filled && s.kind === b.kind));
+  const v = new THREE.Vector3();
+  const onScreen = b => { v.copy(b.mesh.position).project(camera); return v.z < 1 && Math.abs(v.x) < 0.95 && Math.abs(v.y) < 0.95; };
+  if (!needed.length || needed.some(onScreen)) { el.style.display = 'none'; return; }
+  let best = null, bestD = Infinity;
+  for (const b of needed) {
+    const d = Math.hypot(b.mesh.position.x - player.x, b.mesh.position.z - player.z);
+    if (d < bestD) { bestD = d; best = b; }
+  }
+  v.copy(best.mesh.position).applyMatrix4(camera.matrixWorldInverse);   // where it is seen from your eyes
+  let dx = v.x, dy = -v.y;
+  if (v.z > 0) { dy = Math.abs(dy) + 0.5; }                           // behind you: point down / to the side
+  const len = Math.hypot(dx, dy) || 1; dx /= len; dy /= len;
+  const W = window.innerWidth, H = window.innerHeight, m = 60;
+  const k = Math.min((W / 2 - m) / Math.max(0.0001, Math.abs(dx)), (H / 2 - m) / Math.max(0.0001, Math.abs(dy)));
+  el.style.display = 'block';
+  el.style.left = (W / 2 + dx * k) + 'px';
+  el.style.top = (H / 2 + dy * k) + 'px';
+  el.firstElementChild.style.transform = 'rotate(' + Math.atan2(dy, dx) + 'rad)';
+}
+
+function bestKey() { return 'best.' + level.id + '.' + mode; }
+
 function win() {
   playing = false; timing = false;
-  $('winTime').textContent = ((performance.now() - startTime) / 1000).toFixed(1) + ' s';
+  const secs = (performance.now() - startTime) / 1000;
+  $('winTime').textContent = secs.toFixed(1) + ' s';
+  const wb = $('winBest');
+  wb.classList.remove('new');
+  if (level === TUTORIAL) {
+    $('winTitle').textContent = '🎉 Tutorial done!';
+    wb.textContent = 'Now try a real plan.';
+  } else {
+    $('winTitle').textContent = '🎉 Built it!';
+    const best = loadSaved(bestKey(), null);
+    if (best === null || secs < best) {
+      save(bestKey(), secs);
+      wb.textContent = best === null ? 'First time built — that’s your best time to beat' : '🏆 New best! (was ' + best.toFixed(1) + ' s)';
+      if (best !== null) wb.classList.add('new');
+    } else wb.textContent = 'Best: ' + best.toFixed(1) + ' s';
+  }
+  const i = LEVELS.indexOf(level), next = level === TUTORIAL ? LEVELS[0] : LEVELS[i + 1];
+  $('next').classList.toggle('hidden', !next);
+  if (next) $('next').textContent = 'Next plan: ' + next.name + ' ▶';
   $('win').classList.remove('hidden');
   [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, 0.22), i * 120));
+}
+
+// ================= PAUSE =================
+function pause() {
+  if (!playing || paused) return;
+  paused = true; pausedAt = performance.now();
+  if (mode === 'mouse') { input.grab = false; keys.left = keys.right = keys.fwd = keys.back = keys.far = keys.near = false; }
+  $('paused').classList.remove('hidden');
+}
+function resume() {
+  if (!paused) return;
+  paused = false;
+  if (timing) startTime += performance.now() - pausedAt;    // the time spent paused doesn't count
+  lastT = performance.now();
+  $('paused').classList.add('hidden');
 }
 
 // ================= HAND TRACKING (camera) =================
@@ -663,18 +905,29 @@ let hands = null, camAspect = 4 / 3;
 
 let faceModel = null;
 
+// is the head finder seeing your face right now (and does it know where your head normally is)?
+function headFresh() { return !!faceModel && head.x0 !== null && performance.now() - head.lastSeen < 700; }
+
 // runs every time the camera has looked for hands
 function onHand(res) {
   const now = performance.now();
+  // leaning sideways to turn moves your hands across the picture too; take that away so the box stays put
+  const shift = headFresh() ? (head.x - head.x0) : 0;
   tracked = (res.multiHandLandmarks || []).slice(0, 2).map(lm => {
     // distance between two hand points (corrected so the picture's shape doesn't stretch it)
     const dist = (a, b) => Math.hypot((lm[a].x - lm[b].x) * camAspect, lm[a].y - lm[b].y);
     const palm = Math.max(0.0001, dist(0, 9));
     return { lm, palm, size: palm + dist(5, 17),          // size: bigger = hand is closer to the camera
       x: 1 - lm[9].x, y: lm[9].y,                          // where it is in the (mirrored) camera picture
-      u: (1 - lm[9].x - 0.5) / REACH + 0.5, v: (lm[9].y - 0.5) / REACH + 0.5 };   // where that is on screen
+      u: (1 - lm[9].x - shift - 0.5) / REACH + 0.5, v: (lm[9].y - 0.5) / REACH + 0.5 };   // where that is on screen
   }).sort((a, b) => a.u - b.u);
   trackedAt = now;
+
+  // both hands up at the top of the picture for a moment = re-centre (so you don't need the mouse)
+  const handsUp = faceModel && playing && !paused && !held && tracked.length === 2 && tracked.every(h => h.y < 0.2);
+  if (!handsUp) recentreFrom = 0;
+  else if (recentreFrom === 0) recentreFrom = now;
+  else if (recentreFrom > 0 && now - recentreFrom > RECENTRE_HOLD * 1000) { recentreFrom = -1; recentre(); }   // -1: wait for the hands to come down
 
   if (tracked.length === 2) {
     const L = tracked[0], R = tracked[1];
@@ -693,6 +946,14 @@ function onHand(res) {
     input.active = true; input.lastSeen = now;
   }
   drawCorner();
+}
+
+// learn again where your head normally is
+function recentre() {
+  if (!faceModel) return;
+  head.x0 = null; head.samples = [];
+  note = 'Re-centred ✔ — sit or stand normally'; noteUntil = performance.now() + 2000;
+  beep(880, 0.08); setTimeout(() => beep(1175, 0.1), 80);
 }
 
 // runs every time the camera has looked for your face (used for walking)
@@ -802,6 +1063,8 @@ async function startCamera() {
   video.srcObject = stream;
   await video.play();
   camAspect = (video.videoWidth || 640) / (video.videoHeight || 480);
+  camStream = stream;
+  if (hands) { msg.textContent = ''; return true; }      // the trackers are already downloaded from last time
 
   msg.textContent = 'Downloading hand tracking…';
   let base = null;
@@ -810,7 +1073,7 @@ async function startCamera() {
   }
   if (!base || !window.Hands) {
     msg.textContent = 'Could not download hand tracking. Check the internet, or play with mouse / touch.';
-    stream.getTracks().forEach(t => t.stop());
+    stopCamera();
     return false;
   }
   hands = new Hands({ locateFile: f => base + f });
@@ -835,7 +1098,7 @@ async function startCamera() {
   // keep sending camera pictures to the hand tracker (and, ten times a second, to the head finder)
   let busy = false, faceAt = 0;
   const tick = async () => {
-    if (!busy && video.readyState >= 2) {
+    if (camStream && !busy && video.readyState >= 2) {
       busy = true;
       try { await hands.send({ image: video }); } catch (e) {}
       if (faceModel && performance.now() - faceAt > 100) {
@@ -849,6 +1112,15 @@ async function startCamera() {
   tick();
   msg.textContent = '';
   return true;
+}
+
+// switch the camera off (back in the menu, or playing with the mouse)
+function stopCamera() {
+  if (camStream) camStream.getTracks().forEach(t => t.stop());
+  camStream = null;
+  $('cam').srcObject = null;
+  tracked = []; input.active = false; input.grab = false; recentreFrom = 0;
+  head.lastSeen = 0;
 }
 
 // ================= MOUSE / TOUCH =================
@@ -870,7 +1142,15 @@ function setupPointer() {
     if (k === 'q') mouseDepth = clamp(mouseDepth / 1.08, 0.3, 3);     // pull it closer
   });
   window.addEventListener('keyup', e => { const k = e.key.toLowerCase(); if (KEYMAP[k]) keys[KEYMAP[k]] = false; });
-  window.addEventListener('blur', () => { keys.left = keys.right = keys.fwd = keys.back = false; });
+  window.addEventListener('blur', () => { keys.left = keys.right = keys.fwd = keys.back = keys.far = keys.near = false; });
+  // keys that work in both modes
+  window.addEventListener('keydown', e => {
+    if (!mode || e.repeat) return;
+    const k = e.key.toLowerCase();
+    if (k === 'p' || k === 'escape') { if (paused) resume(); else pause(); }
+    if (k === 'm') toggleMute();
+    if (k === 'r' && mode === 'cam') recentre();
+  });
   // on-screen walk buttons
   document.querySelectorAll('#pad button').forEach(b => {
     const set = on => e => { e.preventDefault(); keys[b.dataset.k] = on; b.classList.toggle('on', on); };
@@ -884,7 +1164,8 @@ async function begin(useCam) {
   try { audio = audio || new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
   $('startCam').disabled = $('startMouse').disabled = true;
   let ok = true;
-  if (useCam && !hands) ok = await startCamera();
+  if (useCam && !camStream) ok = await startCamera();
+  if (!useCam) stopCamera();
   $('startCam').disabled = $('startMouse').disabled = false;
   if (!ok) return;
   mode = useCam ? 'cam' : 'mouse';
@@ -892,21 +1173,64 @@ async function begin(useCam) {
   $('handView').style.display = useCam ? 'block' : 'none';
   $('pad').style.display = useCam ? 'none' : 'grid';
   $('recentre').style.display = useCam && faceModel ? 'block' : 'none';
-  document.body.classList.toggle('mouse', !(useCam && faceModel));
   $('menu').classList.add('hidden');
   newGame();
 }
 
-document.querySelectorAll('.level').forEach(b => b.addEventListener('click', () => {
-  document.querySelectorAll('.level').forEach(x => x.classList.remove('on'));
-  b.classList.add('on'); level = b.dataset.n;
-}));
+function toMenu() {
+  playing = false; paused = false; held = null;
+  stopCamera();
+  $('win').classList.add('hidden'); $('paused').classList.add('hidden');
+  $('menu').classList.remove('hidden');
+  if (level === TUTORIAL) level = LEVELS.find(l => l.id === loadSaved('level', 'wall')) || LEVELS[0];
+  showLevels();
+}
+
+// the plan buttons in the menu, and the best time for the chosen plan
+function showLevels() {
+  const box = $('levels');
+  box.innerHTML = '';
+  for (const l of LEVELS) {
+    const b = document.createElement('button');
+    b.className = 'level' + (l === level ? ' on' : '');
+    const n = l.layers.reduce((a, layer) => a + (Array.isArray(layer[0]) ? layer : [layer]).flat().filter(x => x !== '.').length, 0);
+    b.innerHTML = l.name + '<small>' + l.tag + ' · ' + n + ' boxes' + (l.extra ? ' + ' + l.extra + ' spare' : '') + '</small>';
+    b.addEventListener('click', () => { level = l; save('level', l.id); showLevels(); });
+    box.appendChild(b);
+  }
+  const cam = loadSaved('best.' + level.id + '.cam', null), mouse = loadSaved('best.' + level.id + '.mouse', null);
+  const parts = [];
+  if (cam !== null) parts.push('🎥 ' + cam.toFixed(1) + ' s');
+  if (mouse !== null) parts.push('🖱 ' + mouse.toFixed(1) + ' s');
+  $('best').textContent = level === TUTORIAL ? 'Tutorial chosen — now start with the camera or the mouse 👇'
+    : parts.length ? '🏆 Best for ' + level.name + ': ' + parts.join(' · ') : '';
+  $('tutorial').classList.toggle('on', level === TUTORIAL);
+}
+
+function toggleMute() {
+  muted = !muted; save('muted', muted);
+  $('mute').textContent = muted ? '🔇' : '🔊';
+}
+
 $('startCam').addEventListener('click', () => begin(true));
 $('startMouse').addEventListener('click', () => begin(false));
+$('tutorial').addEventListener('click', () => { level = TUTORIAL; showLevels(); });
 $('again').addEventListener('click', newGame);
+$('next').addEventListener('click', () => {
+  const next = level === TUTORIAL ? LEVELS[0] : LEVELS[LEVELS.indexOf(level) + 1];
+  if (next) { level = next; save('level', next.id); newGame(); }
+});
 $('restart').addEventListener('click', () => { if (mode) newGame(); });
-$('recentre').addEventListener('click', () => { head.x0 = null; head.samples = []; });   // learn again where your head normally is
-$('toMenu').addEventListener('click', () => { playing = false; $('win').classList.add('hidden'); $('menu').classList.remove('hidden'); });
+$('recentre').addEventListener('click', recentre);
+$('mute').addEventListener('click', toggleMute);
+$('pause').addEventListener('click', pause);
+$('resume').addEventListener('click', resume);
+$('pauseMenu').addEventListener('click', toMenu);
+$('toMenu').addEventListener('click', toMenu);
+window.addEventListener('blur', pause);                                   // switched to another window or tab
+document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+$('mute').textContent = muted ? '🔇' : '🔊';
+showLevels();
 
 // ================= START =================
 loadScript(THREE_URLS).then(() => {
