@@ -2,6 +2,8 @@
 
 A 3D game played with your hands and body through the webcam. Walk around the room, pick up the boxes with both hands and stack them in the build zone exactly like the see-through plan shows.
 
+**Play:** https://hubarahman2001-lab.github.io/3d-box-stacking/
+
 ## How to play
 
 - **Lift:** put one hand on each side of a box and bring them together.
