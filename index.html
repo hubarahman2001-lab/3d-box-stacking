@@ -12,27 +12,33 @@
 
   /* top bar: score, time, hint */
   #hud { position: fixed; top: 12px; left: 12px; right: 12px; display: flex; gap: 8px; flex-wrap: wrap;
-    align-items: center; pointer-events: none; }
+    align-items: center; pointer-events: none; z-index: 5; }
   .pill { background: rgba(10, 14, 24, .72); border: 1px solid rgba(255,255,255,.14); border-radius: 999px;
     padding: 8px 14px; font-size: 15px; font-weight: 600; }
-  #hint { font-weight: 500; opacity: .92; }
+  #hint { font-size: 17px; font-weight: 600; background: rgba(10, 14, 24, .85); border-color: rgba(255, 210, 60, .5); }
   #hud button.pill { pointer-events: auto; cursor: pointer; color: #fff; font: inherit; font-size: 15px; font-weight: 600; }
   #hudRight { margin-left: auto; display: flex; gap: 8px; }
-  #recentre { display: none; }
 
-  /* the ring that shows where your hand is pointing */
-  #ring { position: fixed; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%;
-    border: 3px solid #fff; box-shadow: 0 0 0 2px rgba(0,0,0,.35); pointer-events: none; display: none;
-    transition: width .1s, height .1s, margin .1s, background .1s; }
-  #ring.grab { width: 30px; height: 30px; margin: -15px 0 0 -15px; background: rgba(255,255,255,.45); }
+  /* where each of your hands is (camera mode) */
+  .hand { position: fixed; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%;
+    border: 3px solid #fff; box-shadow: 0 0 0 2px rgba(0,0,0,.35); pointer-events: none; display: none; }
+  .hand.grip { border-color: #5dff8f; background: rgba(93, 255, 143, .35); }
+  /* the mouse / hand pointer, and the ring that fills up while you hold still to walk */
+  #dwell { position: fixed; width: 64px; height: 64px; margin: -32px 0 0 -32px; border-radius: 50%; pointer-events: none; display: none;
+    -webkit-mask: radial-gradient(circle, transparent 23px, #000 24px); mask: radial-gradient(circle, transparent 23px, #000 24px); }
+  /* "put your hands here" outlines on the sides of the box you're pointing at */
+  .guide { position: fixed; width: 54px; height: 54px; margin: -27px 0 0 -27px; border-radius: 14px; pointer-events: none; display: none;
+    border: 3px dashed rgba(255,255,255,.85); background: rgba(10,14,24,.35); font-size: 30px; line-height: 48px; text-align: center; }
+  .guide.ok { border: 3px solid #5dff8f; background: rgba(93,255,143,.3); }
+  #gR span { display: inline-block; transform: scaleX(-1); }
 
-  /* small picture of your hand's outline (never your face) */
+  /* small picture of your hands' outlines (never your face) */
   #handView { position: fixed; right: 12px; bottom: 12px; width: 180px; height: 135px; border-radius: 12px;
     background: rgba(10, 14, 24, .72); border: 1px solid rgba(255,255,255,.14); display: none; }
 
   /* start screen and win screen */
   /* the card is centred with margin: auto so a tall card scrolls instead of being cut off at the top */
-  .overlay { position: fixed; inset: 0; display: flex; background: rgba(12, 16, 26, .86); padding: 16px; overflow: auto; }
+  .overlay { position: fixed; inset: 0; display: flex; background: rgba(12, 16, 26, .86); padding: 16px; overflow: auto; z-index: 10; }
   .overlay .card { margin: auto; }
   .hidden { display: none !important; }
   .card { width: min(480px, 100%); background: #1e2638; border: 1px solid rgba(255,255,255,.12);
@@ -40,7 +46,7 @@
   h1 { margin: 0 0 6px; font-size: 28px; }
   p { margin: 6px 0 14px; line-height: 1.45; color: #c9d2e6; }
   .how { text-align: left; background: rgba(255,255,255,.05); border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; }
-  .how div { margin: 5px 0; font-size: 15px; color: #dfe6f5; }
+  .how div { margin: 6px 0; font-size: 15px; color: #dfe6f5; }
   .row { display: flex; gap: 8px; justify-content: center; margin-bottom: 14px; flex-wrap: wrap; }
   button { font: inherit; border: 0; border-radius: 12px; padding: 12px 16px; cursor: pointer; font-weight: 700; }
   .level { background: #2c3650; color: #fff; flex: 1 1 30%; padding: 10px 8px; line-height: 1.25; }
@@ -53,23 +59,25 @@
   .main { background: #3d8bfd; color: #fff; width: 100%; font-size: 17px; margin-bottom: 8px; }
   .alt { background: transparent; color: #c9d2e6; width: 100%; border: 1px solid rgba(255,255,255,.2); }
   #msg { min-height: 20px; color: #ffd27a; font-size: 14px; margin: 10px 0 0; }
-  /* arrows at the screen edges: put your hand there to turn / walk */
-  .edge { position: fixed; display: none; align-items: center; justify-content: center; pointer-events: none;
-    color: #fff; font-size: 26px; font-weight: 800; opacity: .25; background: rgba(255,255,255,.10); }
-  .edge.l { left: 0; top: 18%; bottom: 18%; width: 9%; border-radius: 0 16px 16px 0; }
-  .edge.r { right: 0; top: 18%; bottom: 18%; width: 9%; border-radius: 16px 0 0 16px; }
-  .edge.t { top: 0; left: 18%; right: 18%; height: 11%; border-radius: 0 0 16px 16px; align-items: flex-end; padding-bottom: 4px; font-size: 18px; }
-  .edge.b { bottom: 0; left: 18%; right: 18%; height: 11%; border-radius: 16px 16px 0 0; font-size: 18px; }
+  /* turn zones at the left and right edges: put your hands there to turn (camera mode) */
+  .edge { position: fixed; top: 22%; bottom: 22%; width: 10%; display: none; flex-direction: column; align-items: center; justify-content: center;
+    gap: 6px; pointer-events: none; color: #fff; font-size: 30px; font-weight: 800; background: rgba(255,255,255,.12);
+    border: 2px dashed rgba(255,255,255,.35); }
+  .edge small { font-size: 14px; font-weight: 700; letter-spacing: .5px; }
+  .edge.l { left: 0; border-left: 0; border-radius: 0 18px 18px 0; }
+  .edge.r { right: 0; border-right: 0; border-radius: 18px 0 0 18px; }
+  .edge.on { background: rgba(61, 139, 253, .55); border-color: #fff; }
   /* walk buttons for mouse / touch */
-  #pad { position: fixed; left: 12px; bottom: 12px; display: none; grid-template-columns: repeat(3, 54px) 64px; grid-template-rows: repeat(2, 54px); gap: 6px; }
+  #pad { position: fixed; left: 12px; bottom: 12px; display: none; grid-template-columns: repeat(3, 54px); grid-template-rows: repeat(2, 54px); gap: 6px; }
   #pad button { background: rgba(10,14,24,.72); border: 1px solid rgba(255,255,255,.2); color: #fff; font-size: 20px; padding: 0; touch-action: none; user-select: none; -webkit-user-select: none; }
-  #pad button.depth { font-size: 13px; margin-left: 10px; }
   #pad button.on { background: #3d8bfd; }
   /* arrow that points to the nearest box still to be placed, when none is on screen */
-  #find { position: fixed; display: none; width: 0; height: 0; pointer-events: none; }
-  #find span { position: absolute; left: -22px; top: -22px; width: 44px; height: 44px; border-radius: 50%;
-    background: rgba(255, 210, 60, .9); color: #1a1f2c; font-size: 22px; font-weight: 900;
-    display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 10px rgba(0,0,0,.4); }
+  #find { position: fixed; display: none; width: 0; height: 0; }
+  #find span { position: absolute; left: -32px; top: -32px; width: 64px; height: 64px; border-radius: 50%;
+    background: rgba(255, 210, 60, .95); color: #1a1f2c; font-size: 30px; font-weight: 900; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 12px rgba(0,0,0,.45); }
+  #find b { position: absolute; left: -60px; width: 120px; top: 36px; text-align: center; font-size: 13px; color: #ffd23c;
+    text-shadow: 0 1px 3px #000; pointer-events: none; }
   #winTime { font-size: 44px; font-weight: 800; margin: 8px 0 16px; color: #fff; }
 </style>
 </head>
@@ -80,38 +88,37 @@
 <div id="hud">
   <div class="pill" id="score">Placed 0 / 6</div>
   <div class="pill" id="time">0.0 s</div>
-  <div class="pill" id="hint">Hold a box with both hands</div>
+  <div class="pill" id="hint">Show both hands to the camera</div>
   <div id="hudRight">
-    <button class="pill" id="recentre" title="Re-centre (R)">🧍 Re-centre</button>
     <button class="pill" id="mute" title="Sound on / off (M)">🔊</button>
     <button class="pill" id="pause" title="Pause (P or Esc)">❚❚</button>
     <button class="pill" id="restart">↻ Restart</button>
   </div>
 </div>
 
-<div class="edge l" id="eL">◀</div><div class="edge r" id="eR">▶</div>
-<div class="edge t" id="eT">▲ walk forward</div><div class="edge b" id="eB">▼ walk back</div>
+<div class="edge l" id="eL">◀<small>TURN</small></div><div class="edge r" id="eR">▶<small>TURN</small></div>
 <div id="pad">
-  <span></span><button data-k="fwd">▲</button><span></span><button class="depth" data-k="far">Push<br>away</button>
-  <button data-k="left">◀</button><button data-k="back">▼</button><button data-k="right">▶</button><button class="depth" data-k="near">Pull<br>near</button>
+  <span></span><button data-k="fwd">▲</button><span></span>
+  <button data-k="left">◀</button><button data-k="back">▼</button><button data-k="right">▶</button>
 </div>
-<div id="find"><span>➜</span></div>
-<div id="ring"></div>
+<div id="find"><span>➜</span><b>go to next box</b></div>
+<div class="guide" id="gL">✋</div><div class="guide" id="gR"><span>✋</span></div>
+<div class="hand" id="hL"></div><div class="hand" id="hR"></div>
+<div id="dwell"></div>
 <canvas id="handView" width="240" height="180"></canvas>
 <video id="cam" playsinline muted style="display:none"></video>
 
 <div id="menu" class="overlay">
   <div class="card">
     <h1>📦 3D Box Stacking</h1>
-    <p>Walk around the room, pick up the boxes and stack them in the <b>build zone</b> exactly like the see-through plan shows. Sit or stand so the camera sees your face and both hands.</p>
+    <p>Pick up the boxes and stack them in the yellow <b>build zone</b> exactly like the see-through plan shows. Sit about an arm's length from the laptop so the camera sees both hands.</p>
     <div class="how">
-      <div>🙌 <b>One hand each side of a box, bring them together</b> = lift it</div>
-      <div>📦 <b>Move both hands</b> = move the box · tilt them = tilt it</div>
-      <div>🫸 <b>Hands closer to / further from the camera</b> = box nearer / deeper (leaning in doesn't move it)</div>
+      <div>✋📦🤚 <b>Hands on both sides of a box, then squeeze in</b> = lift it (outlines show where)</div>
+      <div>📦 <b>Move your hands</b> = carry it · the box goes where you point</div>
       <div>👐 <b>Move your hands apart</b> = put it down</div>
-      <div>🧍 <b>Lean left / right</b> = turn · <b>lean in</b> = walk forward · <b>lean back</b> = walk back</div>
-      <div>🙆 <b>Both hands up at the top of the picture</b> for a moment = re-centre</div>
-      <div style="opacity:.75">Mouse: hold to carry · W A S D or arrows = walk / turn · wheel or Q / E = depth · P = pause · M = sound</div>
+      <div>🚶 <b>Point at a far box, or carry a box over the build zone, and hold still</b> = walk there</div>
+      <div>↩️ <b>Hands at the left / right edge</b> = turn · <b>hands on the yellow arrow</b> = go to the next box</div>
+      <div style="opacity:.75">Mouse: hold on a box to carry it · click a far box or the yellow arrow to walk to it · W A S D or arrows = walk / turn · P = pause · M = sound</div>
     </div>
     <button class="tut" id="tutorial">👋 New here? Try the tutorial first</button>
     <div class="row" id="levels"></div>
@@ -148,26 +155,26 @@
 
 // ================= SETTINGS (safe to change) =================
 const BOX = 0.8;                 // size of each box
-const HOLD_CLOSE = 3.4;          // hands closer together than this (measured in palm lengths) = you are holding the box
-const HOLD_OPEN = 4.8;           // hands further apart than this = you let go
-const ARM_REACH = 5;             // how near you must stand to a box to lift it
+const ARM_REACH = 3.3;           // how near (on the floor) a box must be for you to lift it
+const CARRY_REACH = 3.6;         // how far away from you a carried box can go
+const WALK_STOP = 2.7;           // walking to a box stops this far from it (so it's in front of you, in reach)
 const HAND_SIZE = 0.22;          // how big the 3D hands are drawn
 const FREE_DEPTH = 2.2;          // how far in front of you your empty hands float
-// walking with your body (the camera watches where your head is)
-const LEAN_DEAD = 0.05;          // how far your head must move sideways before you start to turn
-const LEAN_FULL = 0.16;          // head this far sideways = turning at full speed
-const LEAN_IN = 1.10;            // face this much bigger than normal (you leaned in) = start walking forward
-const LEAN_IN_FULL = 1.30;       // = walking forward at full speed
-const LEAN_BACK = 0.93;          // face this much smaller than normal (you leaned back) = start walking backwards
-const LEAN_BACK_FULL = 0.82;     // = walking backwards at full speed
-const DEPTH_GAIN = 1.8;          // how strongly moving your hand closer / further moves the box in depth
+// lifting with both hands
+const GRIP_APART = 6;            // hands closer together than this (in palm lengths), one each side of the box = holding it
+const RELEASE_APART = 1.8;       // move your hands this many palm lengths further apart than when you lifted = put it down
+const SQUEEZE = 0.8;             // bring your hands in by this many palm lengths on the box's sides = you're gripping it
+const GRIP_TIME = 0.2;           // seconds your hands must stay on the box before it lifts (stops accidental grabs)
+const LOST_DROP = 1.5;           // seconds the camera can lose both hands before a carried box is put down
+const SIDE_REACH = 0.25;         // how far out from the box's sides (part of the screen width) your hands still count
+// walking and turning
+const DWELL = 0.7;               // seconds you hold still pointing at something to walk / turn there
+const TURN_EDGE = 0.1;           // hands this close to the left / right screen edge = turning
 const REACH = 0.6;               // how much of the camera picture covers the whole screen (smaller = less arm movement)
 const SMOOTH = 0.35;             // 0..1, higher = pointer follows faster but shakes more
-const GRACE = 0.6;               // seconds a lost hand is kept before the box is dropped
 const GRAVITY = 18;              // how fast a dropped box falls
-const EDGE = 0.13;               // backup only (if the head finder can't load): hands this close to a screen edge turn / walk
-const WALK_SPEED = 3.6;          // how fast you walk
-const TURN_SPEED = 1.5;          // how fast you turn
+const WALK_SPEED = 3.2;          // how fast you walk
+const TURN_SPEED = 1.6;          // how fast you turn
 const SNAP = 0.7;                // how close a dropped box must be to a spot in the plan to click into it
 const KINDS = [                  // the three kinds of box
   { letter: 'A', color: '#e85d4a' },
@@ -190,11 +197,10 @@ const LEVELS = [
 ];
 // the tutorial: one box right in front of you
 const TUTORIAL = { id: 'tutorial', name: 'Tutorial', tag: '', extra: 0, layers: [ ['B'] ] };
-const RECENTRE_HOLD = 1.5;       // seconds both hands must stay up at the top of the picture to re-centre
 const GAP = 0.9;                 // distance between boxes that sit side by side in the plan
 const BUILD = { x: 0, z: -5.6, w: 6, d: 3 };                           // where the build zone is, and its size
 const ROOM = { minX: -7.4, maxX: 7.4, minZ: -7.4, maxZ: 8.4, maxY: 4.5 };   // boxes can't leave this space
-const WALK = { minX: -7, maxX: 7, minZ: -4.0, maxZ: 8 };               // where you can walk (not into the build zone)
+const WALK = { minX: -7, maxX: 7, minZ: -3.6, maxZ: 8 };               // where you can walk (not into the build zone)
 
 const THREE_URLS = [
   'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
@@ -206,15 +212,10 @@ const MP_URLS = [
   'https://unpkg.com/@mediapipe/hands@' + MP_VER + '/'                 // backup
 ];
 
-const FD_VER = '0.4.1646425229';   // same pinned MediaPipe Face Detection version as the Hand Games project
-const FACE_URLS = [
-  'https://cdn.jsdelivr.net/npm/@mediapipe/face_detection@' + FD_VER + '/',
-  'https://unpkg.com/@mediapipe/face_detection@' + FD_VER + '/'        // backup
-];
-
 // ================= SMALL HELPERS =================
 const $ = id => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const wrapAngle = a => Math.atan2(Math.sin(a), Math.cos(a));
 
 // loads a script file; tries each address in the list until one works
 function loadScript(urls) {
@@ -258,32 +259,34 @@ function beep(freq, len, type, vol) {
 let renderer, scene, camera, raycaster, landRing;
 let boxes = [];                  // every box: { mesh, kind, vy, resting, held, wasRight }
 let slots = [];                  // every spot in the plan: { x, y, z, level, kind, ghost, edges, filled, open }
-let level = LEVELS.find(l => l.id === loadSaved('level', 'pyramid')) || LEVELS[2];   // the plan being built
+let level = LEVELS.find(l => l.id === loadSaved('level', 'wall')) || LEVELS[0];   // the plan being built
 const player = { x: 0, z: 4.5, yaw: 0 };   // where you stand and which way you face
 const PLAYER_R = 0.35;           // how wide you are (you can't walk through boxes)
-const keys = { left: false, right: false, fwd: false, back: false, far: false, near: false };
+const keys = { left: false, right: false, fwd: false, back: false };
 let paused = false, pausedAt = 0;
-let tut = null;                  // tutorial progress: { step, sawLeft, sawRight, startZ }
-let recentreFrom = 0;            // when both hands went up to re-centre (0 = they aren't up)
+let tut = null;                  // tutorial progress: { step, sawLeft, sawRight }
 let magnet = null;               // the plan spot the carried box is being pulled to
 let note = '', noteUntil = 0;    // a short message shown in the hint pill
 let mode = null;                 // 'cam' or 'mouse'
 let playing = false;
 let startTime = 0, timing = false;
 let held = null;                 // the box being carried
-let hover = null;                // the box under the pointer
-let holdDist = 0;                // how far from the camera the carried box started
+let hover = null;                // the box being pointed at
+let autoGo = null;               // walking by itself: { x, z, stop, turnOnly, best, stuck }
+let manualTurn = 0;              // -1..1, turning with the edges / keys this frame
+let dwell = { key: null, t: 0 }; // what the pointer has been resting on, and for how long
+let finderAt = null;             // where the "boxes this way" arrow is on screen, when it's showing
 
-// what the hand (or mouse) is doing right now
-// in camera mode: u, v = the point halfway between your two hands, grab = hands are close together
-const input = { active: false, u: 0.5, v: 0.5, grab: false, size: 1, lastSeen: 0, roll: 0 };
+// what the hands (or mouse) are doing right now. u, v = the pointer on screen (0..1)
+const input = { active: false, u: 0.5, v: 0.5, lastSeen: 0, down: false, roll: 0 };
 let tracked = [], trackedAt = 0; // the hands the camera sees right now (left one on screen first)
 let handModels = [];             // the two 3D hands
-const head = { x: 0.5, w: 0.2, x0: null, w0: null, samples: [], lastSeen: 0, turn: 0, go: 0 };   // where your head is, and where it normally is (x0, w0)
-let grabSize = 1;                // hand size at the moment the box was picked up
-let grabFace = 1;                // face size at that moment (leaning in makes both bigger, so it cancels out)
+let gripT = 0;                   // how long the hands have been on the box's sides
+let rearm = null, rearmOff = 0;  // the box just put down: hands must leave it before lifting it again
+let apartHist = [];              // how far apart the hands were over the last second (to see them squeeze in)
+let lastMagnet = null, lastMagnetT = 0;   // the plan spot the box was on just before you let go
+let gripApart = 0, gripSpan = 0.2;   // how far apart the hands were when they lifted the box (palm lengths / screen)
 let camStream = null;            // the running camera, so it can be switched off in the menu
-let mouseDepth = 1;              // depth control for mouse wheel / keys
 
 // ================= BUILD THE 3D ROOM =================
 function labelTexture(color, letter, faded) {
@@ -368,7 +371,7 @@ function onResize() {
 // put the camera where the player stands
 function placeCamera() {
   camera.position.set(player.x, 2.5, player.z);
-  camera.rotation.set(-0.34, player.yaw, 0);
+  camera.rotation.set(-0.36, player.yaw, 0);
   camera.updateMatrixWorld();
 }
 
@@ -419,12 +422,12 @@ function updateSlots(t) {
 function newGame() {
   boxes.forEach(b => scene.remove(b.mesh));
   boxes = []; held = null; hover = null; magnet = null; landRing.visible = false;
-  head.x0 = null; head.samples = [];       // measure again where your head normally is
+  autoGo = null; gripT = 0; rearm = null; apartHist = []; lastMagnet = null; dwell = { key: null, t: 0 }; note = ''; noteUntil = 0;
   buildPlan();
   player.x = 0; player.z = 4.5; player.yaw = 0;
   placeCamera();
   const view = new THREE.Vector3();
-  const inView = p => { view.copy(p).project(camera); return view.z < 1 && Math.abs(view.x) < 0.85 && view.y > -0.8 && view.y < 0.6; };
+  const inView = p => { view.copy(p).project(camera); return view.z < 1 && Math.abs(view.x) < 0.8 && view.y > -0.7 && view.y < 0.6; };
   const geo = new THREE.BoxGeometry(BOX, BOX, BOX);
   // one box for every spot in the plan, plus the spare ones
   const kinds = slots.map(s => s.kind);
@@ -435,30 +438,31 @@ function newGame() {
     const mesh = new THREE.Mesh(geo, mat);
     mesh.castShadow = true; mesh.receiveShadow = true; mesh.rotation.order = 'YXZ';
     const free = () => boxes.every(o => Math.abs(o.mesh.position.x - mesh.position.x) > BOX * 1.4 || Math.abs(o.mesh.position.z - mesh.position.z) > BOX * 1.4);
-    if (level === TUTORIAL) mesh.position.set(0.6, BOX / 2, 1.6);   // right in front of you
+    if (level === TUTORIAL) mesh.position.set(0, BOX / 2, player.z - WALK_STOP);   // right in front of you, in reach
     else {
-      // find a free spot you can see from where you start (not in the build zone); if the room is too full, anywhere
+      // find a free spot you can see from where you start (not in the build zone, not right under your nose)
       let ok = false;
       for (let tries = 0; tries < 400 && !ok; tries++) {
-        mesh.position.set(-6.5 + Math.random() * 13, BOX / 2, -3.2 + Math.random() * 5.6);
-        ok = inView(mesh.position) && !inZone(mesh.position.x, mesh.position.z, 0.9) && free();
+        mesh.position.set(-6.5 + Math.random() * 13, BOX / 2, -2.8 + Math.random() * 5.2);
+        ok = inView(mesh.position) && !inZone(mesh.position.x, mesh.position.z, 0.9) && free() &&
+             Math.hypot(mesh.position.x - player.x, mesh.position.z - player.z) > 2.4;
       }
       for (let tries = 0; tries < 300 && !ok; tries++) {
-        mesh.position.set(-6.5 + Math.random() * 13, BOX / 2, -3.2 + Math.random() * 10.5);
-        ok = Math.hypot(mesh.position.x - player.x, mesh.position.z - player.z) > 1.6 && free();
+        mesh.position.set(-6.5 + Math.random() * 13, BOX / 2, -2.8 + Math.random() * 10);
+        ok = Math.hypot(mesh.position.x - player.x, mesh.position.z - player.z) > 2.4 && free();
       }
     }
     scene.add(mesh);
     boxes.push({ mesh, kind, vy: 0, resting: true, held: false, wasRight: false });
   }
-  tut = level === TUTORIAL ? { step: 0, sawLeft: false, sawRight: false, startZ: player.z, yaw0: 0 } : null;
+  tut = level === TUTORIAL ? { step: 0, sawLeft: false, sawRight: false } : null;
   timing = false; startTime = 0; playing = true; paused = false;
   $('time').textContent = '0.0 s';
   $('win').classList.add('hidden'); $('paused').classList.add('hidden');
   updateSlots(0); updateScore();
 }
 
-// is this box sitting in a spot of the plan that wants its letter?
+// is this box sitting in a spot of the plan that wants its letter? (then it's done and can't be picked up again)
 function isRight(b) {
   const p = b.mesh.position;
   return !b.held && b.resting && slots.some(s => s.kind === b.kind && Math.abs(p.x - s.x) < 0.12 && Math.abs(p.z - s.z) < 0.12 && Math.abs(p.y - s.y) < 0.12);
@@ -481,7 +485,7 @@ function slotNear(b, reach) {
   return best;
 }
 
-// height of whatever is underneath a box (floor, a pad, or another box)
+// height of whatever is underneath a box (floor, or another box)
 function supportUnder(b) {
   return supportsUnder(b).h;
 }
@@ -501,6 +505,17 @@ function supportsUnder(b) {
     }
   }
   return { h, list };
+}
+
+// the top of the highest box at this spot on the floor (0 = bare floor)
+function heightAt(x, z, except) {
+  let h = 0;
+  for (const o of boxes) {
+    if (o === except || o.held) continue;
+    const q = o.mesh.position;
+    if (Math.abs(x - q.x) < BOX * 0.95 && Math.abs(z - q.z) < BOX * 0.95) h = Math.max(h, q.y + BOX / 2);
+  }
+  return h;
 }
 
 // a box sticking out too far over the edge of the boxes under it slides off.
@@ -566,20 +581,36 @@ function physics(dt) {
 }
 
 // ================= PICKING UP AND CARRYING =================
-function pointerRay() {
-  raycaster.setFromCamera({ x: input.u * 2 - 1, y: -(input.v * 2 - 1) }, camera);
+function pointerRay(u, v) {
+  raycaster.setFromCamera({ x: (u === undefined ? input.u : u) * 2 - 1, y: -((v === undefined ? input.v : v) * 2 - 1) }, camera);
   return raycaster.ray;
 }
 
 // which box is the pointer on? (forgiving: the nearest box close to the pointer also counts)
+// Boxes already in the right place are finished and are left alone.
 function findHover() {
-  const ray = pointerRay();
-  const hits = raycaster.intersectObjects(boxes.map(b => b.mesh));
-  if (hits.length) return boxes.find(b => b.mesh === hits[0].object);
-  let best = null, bestD = 0.09;
+  const free = boxes.filter(b => !b.held && !isRight(b));
+  // camera, both hands seen: the box that sits between your hands (the one nearest the middle of them)
+  if (mode === 'cam' && tracked.length === 2 && performance.now() - trackedAt < 300) {
+    const L = tracked[0], R = tracked[1], mu = (L.u + R.u) / 2, mv = (L.v + R.v) / 2;
+    let best = null, bestD = Infinity;
+    for (const b of free) {
+      const s = screenBox(b);
+      if (s.u < L.u - 0.02 || s.u > R.u + 0.02 || Math.abs(s.v - mv) > s.hh + 0.15) continue;
+      if (b.mesh.position.clone().project(camera).z > 1) continue;
+      const d = Math.hypot(s.u - mu, (s.v - mv) * 0.5) + 0.01 * camera.position.distanceTo(b.mesh.position);
+      if (d < bestD) { bestD = d; best = b; }
+    }
+    if (best) return best;
+  }
+  pointerRay();
+  const hits = raycaster.intersectObjects(free.map(b => b.mesh));
+  if (hits.length) return free.find(b => b.mesh === hits[0].object);
+  let best = null, bestD = 0.12;
   const v = new THREE.Vector3();
-  for (const b of boxes) {
+  for (const b of free) {
     v.copy(b.mesh.position).project(camera);
+    if (v.z > 1) continue;
     const d = Math.hypot((v.x - (input.u * 2 - 1)) * camera.aspect, v.y + (input.v * 2 - 1));
     if (d < bestD) { bestD = d; best = b; }
   }
@@ -588,10 +619,41 @@ function findHover() {
 
 function setGlow(b, on) { b.mesh.material.emissive.setHex(on ? 0x444444 : 0x000000); }
 
+function tooFar(b) { return Math.hypot(b.mesh.position.x - player.x, b.mesh.position.z - player.z) > ARM_REACH; }
+
+// where a box is on screen: its middle and half its width / height (all as parts of the screen, 0..1)
+function screenBox(b) {
+  const v = new THREE.Vector3(), r = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0), up = new THREE.Vector3(0, 1, 0);
+  const c = b.mesh.position.clone().project(camera);
+  const side = v.copy(b.mesh.position).addScaledVector(r, BOX / 2).project(camera);
+  const hw = Math.abs(side.x - c.x) / 2;
+  const top = v.copy(b.mesh.position).addScaledVector(up, BOX / 2).project(camera);
+  const hh = Math.abs(top.y - c.y) / 2;
+  return { u: (c.x + 1) / 2, v: (1 - c.y) / 2, hw, hh };
+}
+
+// are the two hands one on each side of this box, close enough to hold it?
+function handsOnSides(b) {
+  if (tracked.length !== 2 || performance.now() - trackedAt > 300) return { ok: false, l: false, r: false };
+  const sb = screenBox(b), L = tracked[0], R = tracked[1];
+  const high = h => Math.abs(h.v - sb.v) < sb.hh + 0.2;
+  const l = L.u < sb.u + 0.02 && L.u > sb.u - sb.hw - SIDE_REACH && high(L);
+  const r = R.u > sb.u - 0.02 && R.u < sb.u + sb.hw + SIDE_REACH && high(R);
+  return { ok: l && r && handsApart() < GRIP_APART, l, r };
+}
+
+// how far apart the two hands are, in palm lengths (the same whether you sit near or far from the camera)
+function handsApart() {
+  if (tracked.length !== 2) return 0;
+  const L = tracked[0], R = tracked[1];
+  return Math.hypot((R.x - L.x) * camAspect, R.y - L.y) / ((L.palm + R.palm) / 2);
+}
+
 function pickUp(b) {
   held = b; b.held = true; b.resting = false; b.vy = 0; b.wasRight = false;
-  holdDist = clamp(camera.position.distanceTo(b.mesh.position), 1.9, 3.0);   // a carried box is held close, at arm's length
-  grabSize = input.size; grabFace = head.w; mouseDepth = 1;
+  if (hover) setGlow(hover, false);
+  hover = null; gripT = 0; autoGo = null;
+  if (tracked.length === 2) { gripApart = handsApart(); gripSpan = Math.max(0.06, tracked[1].u - tracked[0].u); }
   if (!timing) { timing = true; startTime = performance.now(); }
   beep(520, 0.08);
   updateScore();
@@ -600,9 +662,12 @@ function pickUp(b) {
 function drop() {
   if (!held) return;
   const b = held; held = null; b.held = false; b.vy = 0;
+  rearm = mode === 'cam' ? b : null;       // hands must leave this box before it can be lifted again
   const p = b.mesh.position;
   b.mesh.rotation.set(0, 0, 0);
-  const s = magnet || slotNear(b, SNAP);
+  // letting go moves your hands, which can nudge the box off its spot: use the spot it was on a moment ago
+  const recent = performance.now() - lastMagnetT < 450 && lastMagnet && lastMagnet.open && lastMagnet.kind === b.kind ? lastMagnet : null;
+  const s = magnet || recent || slotNear(b, SNAP);
   if (s) { p.x = s.x; p.z = s.z; p.y = Math.max(p.y, s.y); }      // click into the plan
   else {
     // dropped on a plan spot that wants a different letter, or one that isn't ready yet?
@@ -632,42 +697,54 @@ function pushOutOfZone(b) {
   p.set(bestX, BOX / 2 + 0.3, z);         // a little drop so it lands with a thud
 }
 
+// the spot on the floor (or on top of a box) that the pointer is on, or null when pointing at the sky
+function floorPoint() {
+  const ray = pointerRay();
+  const others = boxes.filter(b => !b.held).map(b => b.mesh);
+  const hits = raycaster.intersectObjects(others);
+  if (hits.length) return { x: hits[0].point.x, z: hits[0].point.z };
+  if (ray.direction.y < -0.01) {
+    const t = -ray.origin.y / ray.direction.y;
+    return { x: ray.origin.x + ray.direction.x * t, z: ray.origin.z + ray.direction.z * t };
+  }
+  return null;
+}
+
+// the carried box goes where you point: over the floor or on top of other boxes, within arm's reach
 function carry() {
   const ray = pointerRay();
-  // hand closer to the camera = bigger hand = box comes nearer.
-  // Leaning in to walk makes your hands look bigger too, so when the head finder is working the hand size
-  // is compared with the face size: leaning makes both bigger, only pushing your hands out changes the box.
-  let ratio = mouseDepth;
-  if (mode === 'cam') {
-    ratio = grabSize / Math.max(0.0001, input.size);
-    if (headFresh() && grabFace > 0) ratio *= head.w / grabFace;
+  let pt = floorPoint();
+  if (!pt) {                               // pointing above the horizon: as far as you can reach that way
+    const len = Math.hypot(ray.direction.x, ray.direction.z) || 1;
+    pt = { x: player.x + ray.direction.x / len * CARRY_REACH, z: player.z + ray.direction.z / len * CARRY_REACH };
   }
-  let d = clamp(holdDist * Math.pow(ratio, DEPTH_GAIN), 1.5, 5.5);
-  const minY = BOX / 2 + 0.02;
-  if (ray.direction.y < 0) d = Math.min(d, (minY - ray.origin.y) / ray.direction.y);   // don't go through the floor
-  const p = held.mesh.position;
-  const target = ray.origin.clone().addScaledVector(ray.direction, d);
+  let dx = pt.x - player.x, dz = pt.z - player.z, d = Math.hypot(dx, dz) || 0.001;
+  const keep = clamp(d, 1.3, CARRY_REACH);
+  pt.x = player.x + dx / d * keep; pt.z = player.z + dz / d * keep;
+  const target = new THREE.Vector3(pt.x, heightAt(pt.x, pt.z, held) + BOX / 2 + 0.35, pt.z);
 
-  // magnet: when you point at a spot in the plan that wants this box, it is pulled there
+  // magnet: when you point at a spot in the plan that wants this box (and it's in reach), it is pulled there
   magnet = null;
   let bestOff = 0.6;
   const v = new THREE.Vector3();
   for (const s of slots) {
     if (!s.open || s.kind !== held.kind) continue;
+    if (Math.hypot(s.x - player.x, s.z - player.z) > CARRY_REACH + 0.4) continue;
     v.set(s.x, s.y, s.z).sub(ray.origin);
     const along = v.dot(ray.direction);                               // how far along the pointing line the spot is
     const off = v.addScaledVector(ray.direction, -along).length();    // how far the line misses it by
-    if (off < bestOff && Math.abs(along - d) < 2.2) { bestOff = off; magnet = s; }
+    if (along > 0 && off < bestOff) { bestOff = off; magnet = s; }
   }
-  if (magnet) target.set(magnet.x, magnet.y + 0.3, magnet.z);
+  if (magnet) { target.set(magnet.x, magnet.y + 0.3, magnet.z); lastMagnet = magnet; lastMagnetT = performance.now(); }
 
   target.x = clamp(target.x, ROOM.minX, ROOM.maxX);
   target.z = clamp(target.z, ROOM.minZ, ROOM.maxZ);
-  target.y = clamp(target.y, minY, ROOM.maxY);
-  p.lerp(target, 0.45);
+  target.y = clamp(target.y, BOX / 2 + 0.02, ROOM.maxY);
+  const p = held.mesh.position;
+  p.lerp(target, 0.4);
   // the box faces the way you face and tilts with your hands (it straightens up over a plan spot)
   if (magnet) held.mesh.rotation.set(0, 0, 0);
-  else held.mesh.rotation.set(0, player.yaw, mode === 'cam' ? clamp(input.roll, -0.6, 0.6) : 0);
+  else held.mesh.rotation.set(0, player.yaw, mode === 'cam' ? clamp(input.roll, -0.4, 0.4) : 0);
 
   // ring underneath: where it will land (green when it will click into the plan)
   landRing.visible = true;
@@ -675,33 +752,34 @@ function carry() {
   landRing.material.color.setHex(magnet || slotNear(held, SNAP) ? 0x5dff8f : 0xffffff);
 }
 
-function tooFar(b) { return Math.hypot(b.mesh.position.x - player.x, b.mesh.position.z - player.z) > ARM_REACH; }
-
+// ================= HINTS =================
 function updateHint() {
   const cam = mode === 'cam';
   const twoHands = performance.now() - trackedAt < 400 && tracked.length === 2;
   let t;
-  if (recentreFrom > 0) t = 'Keep both hands up to re-centre… ' + Math.max(0, Math.ceil(RECENTRE_HOLD - (performance.now() - recentreFrom) / 1000)) + '';
-  else if (performance.now() < noteUntil) t = note;
+  if (performance.now() < noteUntil) t = note;
   else if (tut) t = tutorialHint(cam, twoHands);
   else if (held) {
     const letter = KINDS[held.kind].letter;
-    if (magnet || slotNear(held, SNAP)) t = cam ? 'Move your hands apart to place it ✔' : 'Let go to place it ✔';
+    if (magnet || slotNear(held, SNAP)) t = cam ? 'Move your hands apart to put it down ✔' : 'Let go to put it down ✔';
+    else if (dwell.key === 'zone' || dwell.key === 'find') t = 'Hold still — walking to the build zone…';
+    else if (finderAt) t = 'Hold the box on the yellow arrow to go to its spot';
     else if (!slots.some(s => !s.filled && s.kind === held.kind)) t = 'No spot needs ' + letter + ' any more — it’s a spare, put it down outside the zone';
     else if (!slots.some(s => s.open && s.kind === held.kind)) t = 'No free spot for ' + letter + ' yet — build the layer underneath first';
-    else t = 'Carry it to a glowing ' + letter + ' spot in the build zone';
+    else t = 'Point it at a glowing ' + letter + ' spot · hold it over the build zone to walk there';
   }
-  else if (cam && faceModel && head.x0 === null) t = 'Sit or stand normally and look at the screen…';
-  else if (cam && !twoHands) t = 'Show both hands to the camera';
-  else if (hover && tooFar(hover)) t = cam ? 'Too far — lean in to walk closer' : 'Too far — walk closer (W)';
-  else if (hover) t = cam ? 'Bring your hands together on its sides to lift it 🙌' : 'Hold the button down to pick it up';
-  else t = cam ? (faceModel ? 'Lean left / right to turn · lean in to walk · hold a box with both hands' : 'Hands at the screen edges = turn / walk · hold a box with both hands')
-               : 'W A S D = walk / turn · hold on a box to carry it';
+  else if (autoGo) t = autoGo.turnOnly ? 'Turning…' : 'Walking…';
+  else if (cam && !twoHands) t = 'Show both hands to the camera 🙌';
+  else if (finderAt && dwell.key === 'find') t = 'Hold still — going to the next box…';
+  else if (hover && tooFar(hover)) t = cam ? 'Keep pointing at it — you’ll walk over 🚶' : 'Click it to walk over 🚶';
+  else if (hover) t = cam ? 'Hands on both sides of the box, then squeeze in to lift it ✋📦🤚' : 'Hold the button down to lift it';
+  else if (finderAt) t = cam ? 'Hold your hands on the yellow arrow to go to the next box' : 'Click the yellow arrow to go to the next box';
+  else t = cam ? 'Point at a box · hands at the left / right edge = turn' : 'Click a box · A / D or ◀ ▶ = turn';
   if ($('hint').textContent !== t) $('hint').textContent = t;
 }
 
 // ================= TUTORIAL =================
-// steps: 0 show both hands · 1 turn left and right · 2 lift the box · 3 walk to the build zone · 4 put it down
+// steps: 0 show both hands · 1 turn left and right · 2 lift the box · 3 carry it to the build zone · 4 put it down
 function tutorialUpdate() {
   if (!tut) return;
   const cam = mode === 'cam';
@@ -709,59 +787,178 @@ function tutorialUpdate() {
   const before = tut.step;
   if (tut.step === 0 && (!cam || twoHands)) tut.step = 1;
   if (tut.step === 1) {
-    if (head.turn < -0.4) tut.sawLeft = true;
-    if (head.turn > 0.4) tut.sawRight = true;
-    if (tut.sawLeft && tut.sawRight && Math.abs(head.turn) < 0.1) tut.step = 2;
+    if (manualTurn < -0.3) tut.sawLeft = true;
+    if (manualTurn > 0.3) tut.sawRight = true;
+    if (tut.sawLeft && tut.sawRight && manualTurn === 0) tut.step = 2;
   }
-  if (tut.step === 2 && held) { tut.step = 3; tut.startZ = player.z; }
-  if (tut.step >= 3 && !held) tut.step = 2;                           // dropped it on the way: lift it again
+  if (tut.step === 2 && held) tut.step = 3;
+  if (tut.step >= 3 && !held) tut.step = 2;                           // put it down on the way: lift it again
   if (tut.step === 3 && (magnet || slotNear(held, SNAP))) tut.step = 4;   // close enough: the box is pulled onto its spot
-  else if (tut.step === 4 && !(magnet || slotNear(held, SNAP))) tut.step = 3;   // moved away from it again
+  else if (tut.step === 4 && !(magnet || slotNear(held, SNAP))) tut.step = 3;
   if (tut.step > before) beep(740, 0.1);
 }
 
 function tutorialHint(cam, twoHands) {
-  const face = cam && faceModel;
-  const steps = [
-    'Show both hands to the camera 🙌',
-    !tut.sawLeft ? (face ? 'Lean left to turn left' : cam ? 'Move your hands to the left edge to turn' : 'Press A (or ◀) to turn left')
-                 : !tut.sawRight ? (face ? 'Now lean right to turn right' : cam ? 'Now the right edge' : 'Now press D (or ▶) to turn right')
-                 : (face ? 'Sit back in the middle again' : 'Good! Now stop turning'),
-    cam ? (twoHands ? 'Put your hands either side of the box and bring them together to lift it' : 'Show both hands to the camera 🙌')
-        : 'Point at the box and hold the button down to lift it',
-    (face ? 'Lean in to walk' : cam ? 'Hands at the top edge = walk' : 'Press W (or ▲) to walk') + ' to the yellow BUILD ZONE, until the box jumps onto its spot',
-    (cam ? 'Move your hands apart' : 'Let go') + ' to put it down ✔'
-  ];
-  return 'Tutorial ' + (tut.step + 1) + '/5 · ' + steps[tut.step];
+  let s;
+  if (tut.step === 0) s = 'Show both hands to the camera 🙌';
+  else if (tut.step === 1) s = !tut.sawLeft ? (cam ? 'Move your hands to the LEFT edge to turn left' : 'Press A (or ◀) to turn left')
+                            : !tut.sawRight ? (cam ? 'Now the RIGHT edge to turn right' : 'Now press D (or ▶) to turn right')
+                            : (cam ? 'Good! Bring your hands back to the middle' : 'Good! Now let go of the key');
+  else if (tut.step === 2) s = finderAt ? (cam ? 'Hold your hands on the yellow arrow to go back to the box' : 'Click the yellow arrow to go back to the box')
+                            : cam ? (twoHands ? 'Hands on the outlines either side of the box, then squeeze in ✋📦🤚' : 'Show both hands to the camera 🙌')
+                            : 'Point at the box and hold the button down to lift it';
+  else if (tut.step === 3) s = dwell.key ? 'Hold still — walking…' : finderAt ? 'Hold the box on the yellow arrow to go to its spot'
+                            : 'Point the box at the yellow BUILD ZONE and hold still to walk there';
+  else s = (cam ? 'Move your hands apart' : 'Let go') + ' to put it down ✔';
+  return 'Tutorial ' + (tut.step + 1) + '/5 · ' + s;
 }
 
 // ================= WALKING =================
+// walk by yourself to stand `stop` away from a place, facing it (or with turnOnly, just turn to face it).
+// The spot to stand on is chosen clear of boxes, trying a few angles round the place, so you never end up inside one.
+function walkTo(x, z, stop, turnOnly) {
+  if (turnOnly || !stop) { autoGo = { x, z, turnOnly: true, face: { x, z } }; beep(440, 0.06); return; }
+  const base = Math.atan2(player.x - x, player.z - z);          // the side of the place you're coming from
+  const clear = (sx, sz) => sx > WALK.minX && sx < WALK.maxX && sz > WALK.minZ && sz < WALK.maxZ &&
+    boxes.every(b => b.held || b.mesh.position.y > BOX * 1.2 ||
+      Math.hypot(Math.max(Math.abs(sx - b.mesh.position.x) - BOX / 2, 0), Math.max(Math.abs(sz - b.mesh.position.z) - BOX / 2, 0)) > PLAYER_R + 0.05);
+  let spot = null;
+  for (const k of [0, 1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 6, -6, 8, -8]) {
+    const a = base + k * 0.3, sx = x + Math.sin(a) * stop, sz = z + Math.cos(a) * stop;
+    if (clear(sx, sz)) { spot = { x: sx, z: sz }; break; }
+  }
+  if (!spot) spot = { x: clamp(x + Math.sin(base) * stop, WALK.minX, WALK.maxX), z: clamp(z + Math.cos(base) * stop, WALK.minZ, WALK.maxZ) };
+  autoGo = { x: spot.x, z: spot.z, turnOnly: false, face: { x, z }, best: Infinity, stuck: 0 };
+  beep(440, 0.06);
+}
+
+// the nearest box that can go into the plan right now (or, if none can yet, one that's needed later)
+function nearestNeeded() {
+  let best = null, bestD = Infinity;
+  for (const b of boxes) {
+    if (b.held || isRight(b) || !slots.some(s => !s.filled && s.kind === b.kind)) continue;
+    const now = slots.some(s => s.open && s.kind === b.kind);
+    const d = Math.hypot(b.mesh.position.x - player.x, b.mesh.position.z - player.z) + (now ? 0 : 100);
+    if (d < bestD) { bestD = d; best = b; }
+  }
+  return best;
+}
+
+// the nearest spot in the plan that the carried box can go into now (null for a spare box)
+function heldGoal() {
+  let best = null, bestD = Infinity;
+  for (const s of slots) {
+    if (!s.open || s.kind !== held.kind) continue;
+    const d = Math.hypot(s.x - player.x, s.z - player.z);
+    if (d < bestD) { bestD = d; best = s; }
+  }
+  return best;
+}
+
+// the yellow arrow: carrying a box = walk to the build zone; empty-handed = walk over to the nearest box still needed
+function goToNextBox() {
+  if (held) { const s = heldGoal(); if (s) walkTo(s.x, s.z, 2.8); return; }
+  const b = nearestNeeded();
+  if (b) walkTo(b.mesh.position.x, b.mesh.position.z, WALK_STOP);
+}
+
+// is the pointer on the build zone (the floor there, or a see-through spot of the plan)? Boxes in between don't matter.
+function zonePoint() {
+  const ray = pointerRay();
+  const v = new THREE.Vector3();
+  for (const s of slots) {                 // pointing at a spot of the plan
+    if (s.filled) continue;
+    v.set(s.x, s.y, s.z).sub(ray.origin);
+    const along = v.dot(ray.direction);
+    if (along > 0 && v.addScaledVector(ray.direction, -along).length() < 0.7) return { x: s.x, z: s.z };
+  }
+  if (ray.direction.y < -0.01) {           // pointing at the floor of the zone
+    const t = -ray.origin.y / ray.direction.y;
+    const x = ray.origin.x + ray.direction.x * t, z = ray.origin.z + ray.direction.z * t;
+    if (inZone(x, z, 1.2)) return { x, z };
+  }
+  return null;
+}
+
+// where to walk to when you carry a box to the build zone (you stop 3 m in front of this point)
+function zoneTarget(pt) {
+  return { x: clamp(pt ? pt.x : BUILD.x, BUILD.x - BUILD.w / 2 + 1, BUILD.x + BUILD.w / 2 - 1), z: BUILD.z };
+}
+
+// what the pointer is resting on: a far box (walk to it), the build zone with a box in your hands
+// (walk there), or the yellow arrow (turn to the boxes). Held still for DWELL seconds, it happens.
+function updateDwell(dt) {
+  let key = null;
+  if (input.active && !autoGo && manualTurn === 0) {
+    const px = input.u * window.innerWidth, py = input.v * window.innerHeight;
+    if (finderAt && Math.hypot(px - finderAt.x, py - finderAt.y) < 80) key = 'find';
+    else if (held && !magnet) {
+      const pt = zonePoint();
+      if (pt) {
+        const zt = zoneTarget(pt);
+        if (Math.hypot(zt.x - player.x, zt.z - player.z) > 3.3) key = 'zone';   // not already standing at the zone
+      }
+    }
+    else if (!held && hover && tooFar(hover) && mode === 'cam') key = hover;
+  }
+  if (key !== dwell.key) dwell = { key, t: 0 };
+  else if (key) {
+    dwell.t += dt;
+    if (dwell.t >= DWELL) {
+      if (key === 'find') goToNextBox();
+      else if (key === 'zone') { const zt = zoneTarget(zonePoint()); walkTo(zt.x, zt.z, 3.0); }
+      else walkTo(key.mesh.position.x, key.mesh.position.z, WALK_STOP);
+      dwell = { key: null, t: 0 };
+    }
+  }
+  // the ring that fills up while you hold still
+  const el = $('dwell');
+  if (dwell.key && dwell.t > 0.08 && playing && !paused) {
+    const f = Math.min(1, dwell.t / DWELL) * 360;
+    el.style.display = 'block';
+    el.style.left = (input.u * window.innerWidth) + 'px'; el.style.top = (input.v * window.innerHeight) + 'px';
+    el.style.background = 'conic-gradient(#ffd23c ' + f + 'deg, rgba(255,255,255,.25) ' + f + 'deg)';
+  } else el.style.display = 'none';
+}
+
 function walk(dt) {
   let turn = 0, go = 0;
-  if (mode === 'cam' && faceModel) {
-    // walking with your body: compare where your head is now with where it normally is
-    if (head.x0 !== null && performance.now() - head.lastSeen < 700) {
-      const side = head.x - head.x0;                       // head moved left / right
-      turn = Math.sign(side) * clamp((Math.abs(side) - LEAN_DEAD) / (LEAN_FULL - LEAN_DEAD), 0, 1);
-      const big = head.w / head.w0;                        // face got bigger (leaned in) or smaller (leaned back)
-      if (big > LEAN_IN) go = clamp((big - LEAN_IN) / (LEAN_IN_FULL - LEAN_IN), 0, 1);
-      else if (big < LEAN_BACK) go = -clamp((LEAN_BACK - big) / (LEAN_BACK - LEAN_BACK_FULL), 0, 1);
-    }
-  } else if (mode === 'cam') {
-    if (input.active) {                      // backup: hands near a screen edge
-      if (input.u < EDGE) turn = -(EDGE - input.u) / EDGE; else if (input.u > 1 - EDGE) turn = (input.u - (1 - EDGE)) / EDGE;
-      if (input.v < EDGE) go = (EDGE - input.v) / EDGE; else if (input.v > 1 - EDGE) go = -(input.v - (1 - EDGE)) / EDGE;
+  if (mode === 'cam') {
+    // hands at the left / right edge of the screen = turn
+    if (input.active && performance.now() - trackedAt < 300) {
+      if (input.u < TURN_EDGE) turn = -(0.45 + 0.55 * clamp((TURN_EDGE - input.u) / TURN_EDGE, 0, 1));
+      else if (input.u > 1 - TURN_EDGE) turn = 0.45 + 0.55 * clamp((input.u - (1 - TURN_EDGE)) / TURN_EDGE, 0, 1);
     }
   } else {
     turn = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
     go = (keys.fwd ? 1 : 0) - (keys.back ? 1 : 0);
   }
+  manualTurn = turn;
+  if (turn || go) autoGo = null;            // you took over
+
+  if (autoGo) {                             // walking by itself: face the standing spot, walk there, then face the place
+    let dx = autoGo.x - player.x, dz = autoGo.z - player.z, d = Math.hypot(dx, dz);
+    if (!autoGo.turnOnly && d < 0.06) {     // arrived: now turn to face the box / build zone
+      autoGo.turnOnly = true; autoGo.x = autoGo.face.x; autoGo.z = autoGo.face.z;
+      dx = autoGo.x - player.x; dz = autoGo.z - player.z; d = Math.hypot(dx, dz);
+    }
+    const diff = wrapAngle(Math.atan2(-dx, -dz) - player.yaw);
+    player.yaw += clamp(diff, -TURN_SPEED * 1.8 * dt, TURN_SPEED * 1.8 * dt);
+    if (autoGo.turnOnly) { if (Math.abs(diff) < 0.03) autoGo = null; }
+    else {
+      if (Math.abs(diff) < 0.5) go = Math.min(clamp(d / 0.6 + 0.25, 0, 1), d / (WALK_SPEED * Math.max(dt, 0.001)));   // slow down, don't overshoot
+      if (d < autoGo.best - 0.01) { autoGo.best = d; autoGo.stuck = 0; }   // blocked by a wall? stop trying
+      else if (Math.abs(diff) < 0.05 && (autoGo.stuck += dt) > 0.5) autoGo = null;
+    }
+  }
+
   player.yaw -= turn * TURN_SPEED * dt;
   player.x = clamp(player.x - Math.sin(player.yaw) * go * WALK_SPEED * dt, WALK.minX, WALK.maxX);
   player.z = clamp(player.z - Math.cos(player.yaw) * go * WALK_SPEED * dt, WALK.minZ, WALK.maxZ);
   // you can't walk through boxes standing on the floor: slide along them instead
+  // (when the game is walking you somewhere it steps past them, so you never get stuck)
   for (const b of boxes) {
-    if (b.held) continue;
+    if (b.held || autoGo) continue;
     const q = b.mesh.position;
     if (q.y > BOX * 1.2) continue;                           // only the ones on the floor
     const cx = clamp(player.x, q.x - BOX / 2, q.x + BOX / 2), cz = clamp(player.z, q.z - BOX / 2, q.z + BOX / 2);
@@ -771,14 +968,62 @@ function walk(dt) {
     else player.z = q.z + BOX / 2 + PLAYER_R;                // standing right inside one: step out the front
   }
   player.x = clamp(player.x, WALK.minX, WALK.maxX); player.z = clamp(player.z, WALK.minZ, WALK.maxZ);
-  if (keys.far) mouseDepth = clamp(mouseDepth * Math.exp(1.2 * dt), 0.3, 3);    // on-screen depth buttons
-  if (keys.near) mouseDepth = clamp(mouseDepth * Math.exp(-1.2 * dt), 0.3, 3);
-  head.turn = turn; head.go = go;
   placeCamera();
-  // light up the edge arrows
-  const show = mode === 'cam' ? 'flex' : 'none';
-  [['eL', -turn], ['eR', turn], ['eT', go], ['eB', -go]].forEach(([id, amt]) => {
-    $(id).style.display = show; $(id).style.opacity = (faceModel ? 0 : 0.22) + 0.78 * clamp(amt, 0, 1);
+  // light up the turn zones
+  const show = mode === 'cam' && playing && !paused ? 'flex' : 'none';
+  $('eL').style.display = $('eR').style.display = show;
+  $('eL').classList.toggle('on', turn < 0); $('eR').classList.toggle('on', turn > 0);
+}
+
+// ================= LIFTING WITH BOTH HANDS =================
+function handsGrip(dt) {
+  const now = performance.now();
+  const two = now - trackedAt < 300 && tracked.length === 2;
+  if (held) {
+    // put down: both hands seen and clearly moved apart. Losing one hand (they often overlap) doesn't drop it.
+    if (two && handsApart() > gripApart + RELEASE_APART) drop();
+    else if (now - input.lastSeen > LOST_DROP * 1000) drop();
+    return;
+  }
+  const sides = hover && !tooFar(hover) ? handsOnSides(hover) : { ok: false, l: false, r: false };
+  // squeezing: how much the hands have closed in since they arrived on the box's sides
+  // squeezing: the hands closed in by SQUEEZE palm lengths some time in the last second
+  if (two) apartHist.push([now, handsApart()]);
+  while (apartHist.length && now - apartHist[0][0] > 1000) apartHist.shift();
+  const widest = apartHist.reduce((m, a) => Math.max(m, a[1]), 0);
+  const squeezed = two && (widest - handsApart() >= SQUEEZE || handsApart() < 1.6);
+  if (rearm && hover !== rearm) { rearm = null; rearmOff = 0; }   // reaching for a different box: fine
+  if (rearm) {                              // the box you just put down: hands must leave it for a moment first
+    rearmOff = !sides.l && !sides.r ? rearmOff + dt : 0;
+    if (rearmOff > 0.25) { rearm = null; rearmOff = 0; }
+    gripT = 0; apartHist = [];
+  }
+  else if (sides.ok && two && (squeezed || gripT > 0)) { gripT += dt; if (gripT >= GRIP_TIME) pickUp(hover); }
+  else gripT = 0;
+  return sides;
+}
+
+// the hand outlines on the box's sides, and a ring for each of your hands
+function drawGuides(sides) {
+  const W = window.innerWidth, H = window.innerHeight;
+  const cam = mode === 'cam' && playing && !paused;
+  const showGuide = cam && !held && hover && !tooFar(hover) && !rearm;
+  ['gL', 'gR'].forEach((id, i) => {
+    const el = $(id);
+    if (!showGuide) { el.style.display = 'none'; return; }
+    const sb = screenBox(hover), off = sb.hw + 0.045;
+    el.style.display = 'block';
+    el.style.left = ((sb.u + (i ? off : -off)) * W) + 'px';
+    el.style.top = (sb.v * H) + 'px';
+    el.classList.toggle('ok', !!(sides && (i ? sides.r : sides.l)));
+  });
+  const fresh = performance.now() - trackedAt < 300;
+  ['hL', 'hR'].forEach((id, i) => {
+    const el = $(id), h = tracked[i];
+    if (!cam || !fresh || !h || (held && tracked.length === 2)) { el.style.display = 'none'; return; }
+    el.style.display = 'block';
+    el.style.left = (clamp(h.u, 0, 1) * W) + 'px'; el.style.top = (clamp(h.v, 0, 1) * H) + 'px';
+    el.classList.toggle('grip', gripT > 0 || !!held);
   });
 }
 
@@ -787,26 +1032,23 @@ let lastT = 0;
 function frame(t) {
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, (t - lastT) / 1000 || 0); lastT = t;
-
-  if (input.grab && !wasGrab) { grabStart = performance.now(); grabUsed = false; }   // hands just came together / button just pressed
-  wasGrab = input.grab;
+  let sides = null;
 
   if (playing && !paused) {
-    // hand lost for too long = let go
-    if (mode === 'cam' && input.active && performance.now() - input.lastSeen > GRACE * 1000) { input.active = false; input.grab = false; }
+    if (mode === 'cam' && performance.now() - input.lastSeen > 400 && !held) input.active = false;   // no hands: no pointer
 
     walk(dt);
     tutorialUpdate();
     updateSlots(t);
 
-    if (held) {
-      if (!input.grab) drop(); else carry();
-    } else {
+    if (!held) {
       const h = input.active ? findHover() : null;
       if (h !== hover) { if (hover) setGlow(hover, false); hover = h; if (hover) setGlow(hover, true); }
-      // mouse: the button must be pressed on the box (holding it down and sweeping over boxes doesn't grab)
-      if (hover && input.grab && !grabUsed && !tooFar(hover) && (mode === 'cam' || performance.now() - grabStart < 400)) { pickUp(hover); hover = null; grabUsed = true; }
     }
+    if (mode === 'cam') sides = handsGrip(dt);
+    else if (held && !input.down) drop();
+    if (held) carry();
+    updateDwell(dt);
 
     physics(dt);
 
@@ -816,45 +1058,41 @@ function frame(t) {
     updateHint();
   }
   updateFinder();
-
+  drawGuides(sides);
   updateHandModels();
-
-  // the on-screen ring halfway between your hands (camera mode only)
-  const ring = $('ring');
-  if (mode === 'cam' && input.active && playing && !paused && !held) {
-    ring.style.display = 'block';
-    ring.style.left = (input.u * window.innerWidth) + 'px';
-    ring.style.top = (input.v * window.innerHeight) + 'px';
-    ring.classList.toggle('grab', input.grab);
-  } else ring.style.display = 'none';
-
   renderer.render(scene, camera);
 }
-let grabUsed = false, wasGrab = false, grabStart = 0;
 
 // when no box that's still needed is on screen, an arrow at the edge points to the nearest one
 function updateFinder() {
   const el = $('find');
-  if (!playing || paused || held) { el.style.display = 'none'; return; }
-  const needed = boxes.filter(b => !b.held && !isRight(b) && slots.some(s => !s.filled && s.kind === b.kind));
+  finderAt = null;
+  if (!playing || paused || autoGo) { el.style.display = 'none'; return; }
   const v = new THREE.Vector3();
-  const onScreen = b => { v.copy(b.mesh.position).project(camera); return v.z < 1 && Math.abs(v.x) < 0.95 && Math.abs(v.y) < 0.95; };
-  if (!needed.length || needed.some(onScreen)) { el.style.display = 'none'; return; }
-  let best = null, bestD = Infinity;
-  for (const b of needed) {
-    const d = Math.hypot(b.mesh.position.x - player.x, b.mesh.position.z - player.z);
-    if (d < bestD) { bestD = d; best = b; }
+  // 'on screen' = comfortably in view, not hiding in the turn zones at the edges
+  const onScreen = p => { v.copy(p).project(camera); return v.z < 1 && Math.abs(v.x) < 0.72 && Math.abs(v.y) < 0.9; };
+  let goal;
+  if (held) {                                            // carrying: the arrow leads to the spot in the plan this box goes in
+    const s = heldGoal();
+    if (!s || onScreen(new THREE.Vector3(s.x, s.y, s.z))) { el.style.display = 'none'; return; }
+    goal = new THREE.Vector3(s.x, s.y, s.z); el.lastElementChild.textContent = 'go to its spot';
+  } else {                                               // empty-handed: it leads to the nearest box still needed
+    // the boxes that can go into the plan right now (or, if none can, the ones needed later)
+    let needed = boxes.filter(b => !b.held && !isRight(b) && slots.some(s => s.open && s.kind === b.kind));
+    if (!needed.length) needed = boxes.filter(b => !b.held && !isRight(b) && slots.some(s => !s.filled && s.kind === b.kind));
+    if (!needed.length || needed.some(b => onScreen(b.mesh.position))) { el.style.display = 'none'; return; }
+    goal = (nearestNeeded() || needed[0]).mesh.position;
+    el.lastElementChild.textContent = 'go to next box';
   }
-  v.copy(best.mesh.position).applyMatrix4(camera.matrixWorldInverse);   // where it is seen from your eyes
-  let dx = v.x, dy = -v.y;
-  if (v.z > 0) { dy = Math.abs(dy) + 0.5; }                           // behind you: point down / to the side
-  const len = Math.hypot(dx, dy) || 1; dx /= len; dy /= len;
-  const W = window.innerWidth, H = window.innerHeight, m = 60;
-  const k = Math.min((W / 2 - m) / Math.max(0.0001, Math.abs(dx)), (H / 2 - m) / Math.max(0.0001, Math.abs(dy)));
+  v.copy(goal).applyMatrix4(camera.matrixWorldInverse);   // where it is seen from your eyes
+  let dx = v.x, dy = 0;
+  if (Math.abs(dx) < 0.3) dx = v.z > 0 ? 1 : dx || 1;                   // right behind you: point to the side
+  dx = Math.sign(dx);
+  const W = window.innerWidth, H = window.innerHeight, m = W * TURN_EDGE + 70;
+  finderAt = { x: W / 2 + dx * (W / 2 - m), y: H * 0.5 + dy };
   el.style.display = 'block';
-  el.style.left = (W / 2 + dx * k) + 'px';
-  el.style.top = (H / 2 + dy * k) + 'px';
-  el.firstElementChild.style.transform = 'rotate(' + Math.atan2(dy, dx) + 'rad)';
+  el.style.left = finderAt.x + 'px'; el.style.top = finderAt.y + 'px';
+  el.firstElementChild.style.transform = dx < 0 ? 'scaleX(-1)' : '';
 }
 
 function bestKey() { return 'best.' + level.id + '.' + mode; }
@@ -888,13 +1126,14 @@ function win() {
 function pause() {
   if (!playing || paused) return;
   paused = true; pausedAt = performance.now();
-  if (mode === 'mouse') { input.grab = false; keys.left = keys.right = keys.fwd = keys.back = keys.far = keys.near = false; }
+  if (mode === 'mouse') { input.down = false; keys.left = keys.right = keys.fwd = keys.back = false; }
   $('paused').classList.remove('hidden');
 }
 function resume() {
   if (!paused) return;
   paused = false;
   if (timing) startTime += performance.now() - pausedAt;    // the time spent paused doesn't count
+  input.lastSeen = performance.now();                       // don't drop the box for the time spent paused
   lastT = performance.now();
   $('paused').classList.add('hidden');
 }
@@ -903,93 +1142,53 @@ function resume() {
 const LINKS = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
 let hands = null, camAspect = 4 / 3;
 
-let faceModel = null;
-
-// is the head finder seeing your face right now (and does it know where your head normally is)?
-function headFresh() { return !!faceModel && head.x0 !== null && performance.now() - head.lastSeen < 700; }
-
 // runs every time the camera has looked for hands
 function onHand(res) {
   const now = performance.now();
-  // leaning sideways to turn moves your hands across the picture too; take that away so the box stays put
-  const shift = headFresh() ? (head.x - head.x0) : 0;
   tracked = (res.multiHandLandmarks || []).slice(0, 2).map(lm => {
     // distance between two hand points (corrected so the picture's shape doesn't stretch it)
     const dist = (a, b) => Math.hypot((lm[a].x - lm[b].x) * camAspect, lm[a].y - lm[b].y);
     const palm = Math.max(0.0001, dist(0, 9));
-    return { lm, palm, size: palm + dist(5, 17),          // size: bigger = hand is closer to the camera
+    return { lm, palm,
       x: 1 - lm[9].x, y: lm[9].y,                          // where it is in the (mirrored) camera picture
-      u: (1 - lm[9].x - shift - 0.5) / REACH + 0.5, v: (lm[9].y - 0.5) / REACH + 0.5 };   // where that is on screen
+      u: (1 - lm[9].x - 0.5) / REACH + 0.5, v: (lm[9].y - 0.5) / REACH + 0.5 };   // where that is on screen
   }).sort((a, b) => a.u - b.u);
   trackedAt = now;
 
-  // both hands up at the top of the picture for a moment = re-centre (so you don't need the mouse)
-  const handsUp = faceModel && playing && !paused && !held && tracked.length === 2 && tracked.every(h => h.y < 0.2);
-  if (!handsUp) recentreFrom = 0;
-  else if (recentreFrom === 0) recentreFrom = now;
-  else if (recentreFrom > 0 && now - recentreFrom > RECENTRE_HOLD * 1000) { recentreFrom = -1; recentre(); }   // -1: wait for the hands to come down
-
+  let u = null, v = null;
   if (tracked.length === 2) {
     const L = tracked[0], R = tracked[1];
-    // how far apart the hands are, measured in palm lengths
-    const apart = Math.hypot((R.x - L.x) * camAspect, R.y - L.y) / ((L.palm + R.palm) / 2);
-    if (apart < HOLD_CLOSE) input.grab = true;
-    else if (apart > HOLD_OPEN) input.grab = false;
-
-    const u = clamp((L.u + R.u) / 2, 0, 1), v = clamp((L.v + R.v) / 2, 0, 1), size = (L.size + R.size) / 2;
+    u = (L.u + R.u) / 2; v = (L.v + R.v) / 2;
     const roll = Math.atan2(-(R.v - L.v) * window.innerHeight, (R.u - L.u) * window.innerWidth);   // tilt of the line between the hands
-    if (!input.active) { input.u = u; input.v = v; input.size = size; input.roll = roll; }
-    else {
-      input.u += (u - input.u) * SMOOTH; input.v += (v - input.v) * SMOOTH;
-      input.size += (size - input.size) * 0.2; input.roll += (roll - input.roll) * 0.3;
-    }
+    input.roll += (roll - input.roll) * 0.3;
+  } else if (tracked.length === 1) {
+    const h = tracked[0];
+    // carrying with one hand lost (hands often overlap): the box stays between your hands, next to the one still seen
+    if (held) { u = h.u + (h.u < input.u ? 1 : -1) * gripSpan / 2; v = h.v; }
+    else { u = h.u; v = h.v; }
+  }
+  if (u !== null) {
+    u = clamp(u, 0, 1); v = clamp(v, 0, 1);
+    if (!input.active) { input.u = u; input.v = v; }
+    else { input.u += (u - input.u) * SMOOTH; input.v += (v - input.v) * SMOOTH; }
     input.active = true; input.lastSeen = now;
   }
   drawCorner();
 }
 
-// learn again where your head normally is
-function recentre() {
-  if (!faceModel) return;
-  head.x0 = null; head.samples = [];
-  note = 'Re-centred ✔ — sit or stand normally'; noteUntil = performance.now() + 2000;
-  beep(880, 0.08); setTimeout(() => beep(1175, 0.1), 80);
-}
-
-// runs every time the camera has looked for your face (used for walking)
-function onFace(res) {
-  let best = null;
-  for (const d of (res.detections || [])) if (!best || d.boundingBox.width > best.width) best = d.boundingBox;   // nearest face
-  if (!best) return;
-  const x = 1 - best.xCenter, w = best.width;
-  if (performance.now() - head.lastSeen > 700) { head.x = x; head.w = w; }
-  else { head.x += (x - head.x) * 0.4; head.w += (w - head.w) * 0.4; }
-  head.lastSeen = performance.now();
-  if (head.x0 === null) {                       // first second: learn where your head normally is
-    head.samples.push([x, w]);
-    if (head.samples.length >= 10) {
-      head.x0 = head.samples.reduce((a, q) => a + q[0], 0) / head.samples.length;
-      head.w0 = head.samples.reduce((a, q) => a + q[1], 0) / head.samples.length;
-    }
-  }
-}
-
-// small picture in the corner: your hands' outlines and a dot showing which way you're walking
+// small picture in the corner: your hands' outlines
 function drawCorner() {
   const g = $('handView').getContext('2d'), W = 240, H = 180;
   g.clearRect(0, 0, W, H);
-  g.lineWidth = 3; g.lineCap = 'round'; g.strokeStyle = input.grab ? '#5dff8f' : '#ffffff';
+  g.lineWidth = 3; g.lineCap = 'round'; g.strokeStyle = held ? '#5dff8f' : '#ffffff';
   for (const h of tracked) {
     g.beginPath();
     for (const [a, b] of LINKS) { g.moveTo((1 - h.lm[a].x) * W, h.lm[a].y * H); g.lineTo((1 - h.lm[b].x) * W, h.lm[b].y * H); }
     g.stroke();
   }
-  if (faceModel) {
-    const cx = W - 30, cy = 30;
-    g.lineWidth = 2; g.strokeStyle = 'rgba(255,255,255,.5)';
-    g.beginPath(); g.arc(cx, cy, 22, 0, 7); g.stroke();
-    g.fillStyle = head.x0 === null ? '#ffd27a' : (head.turn || head.go) ? '#5dff8f' : '#ffffff';
-    g.beginPath(); g.arc(cx + head.turn * 16, cy - head.go * 16, 6, 0, 7); g.fill();
+  if (!tracked.length) {
+    g.fillStyle = '#ffd27a'; g.font = 'bold 16px system-ui, sans-serif'; g.textAlign = 'center';
+    g.fillText('No hands seen', W / 2, H / 2);
   }
 }
 
@@ -1016,14 +1215,18 @@ function updateHandModels() {
   UP = UP || new THREE.Vector3(0, 1, 0);
   const dir = new THREE.Vector3(), target = new THREE.Vector3();
   if (held) held.mesh.updateMatrixWorld();
+  // empty hands float at the distance of the box you're reaching for, so they look like they touch it
+  const reachDepth = hover && !tooFar(hover) ? camera.position.distanceTo(hover.mesh.position) - 0.1 : FREE_DEPTH;
   for (let i = 0; i < 2; i++) {
-    const m = handModels[i], h = fresh ? tracked[i] : null;
+    const m = handModels[i];
+    // carrying with one hand lost: still draw both hands gripping the box
+    const h = fresh ? (held && tracked.length === 1 ? tracked[0] : tracked[i]) : null;
     if (!h) { m.g.visible = false; continue; }
 
-    // shape: copy the real hand's finger positions
-    const c = h.lm[9], k = HAND_SIZE / h.palm;
+    // shape: copy the real hand's finger positions (the right hand is mirrored when it stands in for a lost one)
+    const c = h.lm[9], k = HAND_SIZE / h.palm, flip = held && tracked.length === 1 && i === 1 ? -1 : 1;
     for (let j = 0; j < 21; j++) {
-      m.pts[j].set((c.x - h.lm[j].x) * camAspect * k, (c.y - h.lm[j].y) * k, (c.z - h.lm[j].z) * camAspect * k);
+      m.pts[j].set(flip * (c.x - h.lm[j].x) * camAspect * k, (c.y - h.lm[j].y) * k, (c.z - h.lm[j].z) * camAspect * k);
       m.joints[j].position.copy(m.pts[j]);
     }
     m.links.forEach(([a, b], n) => {
@@ -1035,13 +1238,13 @@ function updateHandModels() {
       bone.quaternion.setFromUnitVectors(UP, dir.divideScalar(len));
     });
 
-    // place: on the sides of the carried box, or floating in front of you
-    if (held && tracked.length === 2) {
+    // place: gripping the sides of the carried box, or reaching out in front of you
+    if (held) {
       target.set((i === 0 ? -1 : 1) * (BOX / 2 + 0.06), 0, 0.22);
       held.mesh.localToWorld(target);
     } else {
       raycaster.setFromCamera({ x: h.u * 2 - 1, y: -(h.v * 2 - 1) }, camera);
-      target.copy(raycaster.ray.origin).addScaledVector(raycaster.ray.direction, FREE_DEPTH);
+      target.copy(raycaster.ray.origin).addScaledVector(raycaster.ray.direction, reachDepth);
     }
     if (!m.g.visible) m.g.position.copy(target); else m.g.position.lerp(target, 0.6);
     m.g.quaternion.copy(camera.quaternion);
@@ -1064,7 +1267,7 @@ async function startCamera() {
   await video.play();
   camAspect = (video.videoWidth || 640) / (video.videoHeight || 480);
   camStream = stream;
-  if (hands) { msg.textContent = ''; return true; }      // the trackers are already downloaded from last time
+  if (hands) { msg.textContent = ''; return true; }      // hand tracking is already downloaded from last time
 
   msg.textContent = 'Downloading hand tracking…';
   let base = null;
@@ -1077,34 +1280,15 @@ async function startCamera() {
     return false;
   }
   hands = new Hands({ locateFile: f => base + f });
-  hands.setOptions({ maxNumHands: 2, modelComplexity: 0, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+  hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
   hands.onResults(onHand);
 
-  // the head finder (for walking with your body)
-  msg.textContent = 'Downloading the head finder…';
-  try {
-    let fbase = null;
-    for (const u of FACE_URLS) {
-      try { await loadScript([u + 'face_detection.js']); fbase = u; break; } catch (e) {}
-    }
-    if (!fbase || !window.FaceDetection) throw new Error('not downloaded');
-    const f = new FaceDetection({ locateFile: x => fbase + x });
-    f.setOptions({ model: 'short', minDetectionConfidence: 0.5 });
-    f.onResults(onFace);
-    await f.initialize();
-    faceModel = f;
-  } catch (e) { faceModel = null; }     // if it can't load, walking falls back to hands at the screen edges
-
-  // keep sending camera pictures to the hand tracker (and, ten times a second, to the head finder)
-  let busy = false, faceAt = 0;
+  // keep sending camera pictures to the hand tracker
+  let busy = false;
   const tick = async () => {
     if (camStream && !busy && video.readyState >= 2) {
       busy = true;
       try { await hands.send({ image: video }); } catch (e) {}
-      if (faceModel && performance.now() - faceAt > 100) {
-        faceAt = performance.now();
-        try { await faceModel.send({ image: video }); } catch (e) {}
-      }
       busy = false;
     }
     requestAnimationFrame(tick);
@@ -1119,8 +1303,7 @@ function stopCamera() {
   if (camStream) camStream.getTracks().forEach(t => t.stop());
   camStream = null;
   $('cam').srcObject = null;
-  tracked = []; input.active = false; input.grab = false; recentreFrom = 0;
-  head.lastSeen = 0;
+  tracked = []; input.active = false;
 }
 
 // ================= MOUSE / TOUCH =================
@@ -1128,28 +1311,31 @@ function setupPointer() {
   const c = $('scene');
   const move = e => { if (mode !== 'mouse') return; input.u = e.clientX / window.innerWidth; input.v = e.clientY / window.innerHeight; input.active = true; };
   c.addEventListener('pointermove', move);
-  c.addEventListener('pointerdown', e => { if (mode !== 'mouse') return; move(e); input.grab = true; try { c.setPointerCapture(e.pointerId); } catch (err) {} });
-  const up = e => { if (mode !== 'mouse') return; input.grab = false; if (e.pointerType !== 'mouse') input.active = false; };
+  c.addEventListener('pointerdown', e => {
+    if (mode !== 'mouse' || !playing || paused) return;
+    move(e); input.down = true;
+    try { c.setPointerCapture(e.pointerId); } catch (err) {}
+    const b = findHover();
+    if (b && !tooFar(b)) pickUp(b);                                    // in reach: lift it
+    else if (b) walkTo(b.mesh.position.x, b.mesh.position.z, WALK_STOP); // too far: walk over to it
+  });
+  const up = e => { if (mode !== 'mouse') return; input.down = false; if (e.pointerType !== 'mouse') input.active = false; };
   c.addEventListener('pointerup', up);
   c.addEventListener('pointercancel', up);
-  c.addEventListener('wheel', e => { if (mode !== 'mouse') return; e.preventDefault(); mouseDepth = clamp(mouseDepth * Math.exp(-e.deltaY * 0.0012), 0.3, 3); }, { passive: false });
   const KEYMAP = { w: 'fwd', arrowup: 'fwd', s: 'back', arrowdown: 'back', a: 'left', arrowleft: 'left', d: 'right', arrowright: 'right' };
   window.addEventListener('keydown', e => {
     if (mode !== 'mouse') return;
     const k = e.key.toLowerCase();
     if (KEYMAP[k]) { keys[KEYMAP[k]] = true; e.preventDefault(); }
-    if (k === 'e') mouseDepth = clamp(mouseDepth * 1.08, 0.3, 3);     // push the box away
-    if (k === 'q') mouseDepth = clamp(mouseDepth / 1.08, 0.3, 3);     // pull it closer
   });
   window.addEventListener('keyup', e => { const k = e.key.toLowerCase(); if (KEYMAP[k]) keys[KEYMAP[k]] = false; });
-  window.addEventListener('blur', () => { keys.left = keys.right = keys.fwd = keys.back = keys.far = keys.near = false; });
+  window.addEventListener('blur', () => { keys.left = keys.right = keys.fwd = keys.back = false; });
   // keys that work in both modes
   window.addEventListener('keydown', e => {
     if (!mode || e.repeat) return;
     const k = e.key.toLowerCase();
     if (k === 'p' || k === 'escape') { if (paused) resume(); else pause(); }
     if (k === 'm') toggleMute();
-    if (k === 'r' && mode === 'cam') recentre();
   });
   // on-screen walk buttons
   document.querySelectorAll('#pad button').forEach(b => {
@@ -1157,6 +1343,8 @@ function setupPointer() {
     b.addEventListener('pointerdown', set(true));
     ['pointerup', 'pointercancel', 'pointerleave'].forEach(n => b.addEventListener(n, set(false)));
   });
+  // clicking the yellow arrow turns you to the boxes
+  $('find').addEventListener('click', () => { if (playing && !paused) goToNextBox(); });
 }
 
 // ================= MENU BUTTONS =================
@@ -1169,10 +1357,9 @@ async function begin(useCam) {
   $('startCam').disabled = $('startMouse').disabled = false;
   if (!ok) return;
   mode = useCam ? 'cam' : 'mouse';
-  input.active = false; input.grab = false;
+  input.active = false; input.down = false;
   $('handView').style.display = useCam ? 'block' : 'none';
   $('pad').style.display = useCam ? 'none' : 'grid';
-  $('recentre').style.display = useCam && faceModel ? 'block' : 'none';
   $('menu').classList.add('hidden');
   newGame();
 }
@@ -1221,7 +1408,6 @@ $('next').addEventListener('click', () => {
   if (next) { level = next; save('level', next.id); newGame(); }
 });
 $('restart').addEventListener('click', () => { if (mode) newGame(); });
-$('recentre').addEventListener('click', recentre);
 $('mute').addEventListener('click', toggleMute);
 $('pause').addEventListener('click', pause);
 $('resume').addEventListener('click', resume);
